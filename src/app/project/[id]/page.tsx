@@ -41,33 +41,46 @@ export default function ProjectDetail() {
   const [images, setImages] = useState<string[]>([]);
   const [link, setLink] = useState("");
   const [github, setGithub] = useState("");
+  const [loading, setLoading] = useState(!baseProject);
+  const [found, setFound] = useState(!!baseProject);
 
   // Load any saved edits from Supabase
   useEffect(() => {
-    if (!baseProject) return;
-    // Set defaults from mock
-    setTitle(baseProject.title);
-    setDescription(baseProject.description);
-    setContent(baseProject.content ?? "");
-    setTech([...baseProject.tech]);
-    setImages(baseProject.images ?? []);
-    setLink(baseProject.link ?? "");
-    setGithub(baseProject.github ?? "");
-    // Fetch DB override
-    supabase.from("projects").select("*").eq("id", baseProject.id).single().then(({ data }) => {
-      if (data) {
+    if (baseProject) {
+      // Set defaults from mock
+      setTitle(baseProject.title);
+      setDescription(baseProject.description);
+      setContent(baseProject.content ?? "");
+      setTech([...baseProject.tech]);
+      setImages(baseProject.images ?? []);
+      setLink(baseProject.link ?? "");
+      setGithub(baseProject.github ?? "");
+    }
+    // Fetch DB override (or standalone user-created project)
+    supabase.from("projects").select("*").eq("id", params.id).single().then(({ data }) => {
+      if (data && !data.is_hidden) {
         if (data.title) setTitle(data.title);
         if (data.description) setDescription(data.description);
         if (data.content) setContent(data.content);
-        if (data.tech) setTech(data.tech);
-        if (data.images) setImages(data.images);
+        if (data.tech?.length) setTech(data.tech);
+        if (data.images?.length) setImages(data.images);
         if (data.link !== undefined) setLink(data.link ?? "");
         if (data.github !== undefined) setGithub(data.github ?? "");
+        setFound(true);
       }
+      setLoading(false);
     });
-  }, [baseProject]);
+  }, [baseProject, params.id]);
 
-  if (!baseProject) {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
+        <p style={{ color: "var(--text-muted)" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!found) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
         <p style={{ color: "var(--text-muted)" }}>Project not found.</p>
@@ -75,25 +88,29 @@ export default function ProjectDetail() {
     );
   }
 
+  const projectId = (baseProject?.id ?? params.id) as string;
+
   const handleSave = () => {
-    saveToDb("projects", { id: baseProject.id, title, description, content, tech, images, link: link || null, github: github || null }).catch(() => {});
+    saveToDb("projects", { id: projectId, title, description, content, tech, images, link: link || null, github: github || null }).catch(() => {});
     setEditing(false);
   };
 
   const handleCancel = () => {
-    setTitle(baseProject.title);
-    setDescription(baseProject.description);
-    setContent(baseProject.content ?? "");
-    setTech([...baseProject.tech]);
-    setImages(baseProject.images ?? []);
-    setLink(baseProject.link ?? "");
-    setGithub(baseProject.github ?? "");
+    if (baseProject) {
+      setTitle(baseProject.title);
+      setDescription(baseProject.description);
+      setContent(baseProject.content ?? "");
+      setTech([...baseProject.tech]);
+      setImages(baseProject.images ?? []);
+      setLink(baseProject.link ?? "");
+      setGithub(baseProject.github ?? "");
+    }
     setEditing(false);
   };
 
   const handleDelete = () => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    hideInDb("projects", baseProject.id).catch(() => {});
+    hideInDb("projects", projectId).catch(() => {});
     router.push("/#projects");
   };
 
