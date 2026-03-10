@@ -1320,20 +1320,19 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
         <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} />
       </Canvas>
       {/* Mode buttons */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-10">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         {(["galaxy", "reduction", "timeline"] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
-            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-500 cursor-pointer"
+            className="w-2.5 h-2.5 rounded-full transition-all duration-500 cursor-pointer"
             style={{
-              background: mode === m ? "rgba(2,132,199,0.2)" : "rgba(255,255,255,0.03)",
-              color: mode === m ? "var(--accent-mid)" : "var(--text-muted)",
-              border: mode === m ? "1px solid rgba(2,132,199,0.5)" : "1px solid var(--border)",
+              background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
+              border: "none",
+              transform: mode === m ? "scale(1.3)" : "scale(1)",
             }}
-          >
-            {m === "galaxy" ? "🌌 Galaxy" : m === "reduction" ? "🔬 Clusters" : "📅 Timeline"}
-          </button>
+            aria-label={m === "galaxy" ? "Galaxy view" : m === "reduction" ? "Clusters view" : "Timeline view"}
+          />
         ))}
       </div>
     </div>
