@@ -887,20 +887,34 @@ More broadly: diffusion models are remarkable at capturing **texture distributio
   {
     id: "galaxy-portfolio",
     title: "Building a 3D Galaxy Portfolio with Three.js and Next.js",
-    excerpt: "A deep technical walkthrough of how this portfolio site works — procedural galaxy generation, UnrealBloom post-processing, client-side UMAP clustering, constellation timelines, and scroll-driven mode transitions. All in the browser.",
+    excerpt: "How and why I built this website — a 3D galaxy where every star is something I've learned. The full story: the idea, the tech decisions, what broke, and what I'd do differently.",
     content: `# Building a 3D Galaxy Portfolio with Three.js and Next.js
 
-![Milky Way galaxy](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/ESO-VLT-Laser-phot-0a-99.jpg/1280px-ESO-VLT-Laser-phot-0a-99.jpg)
+![Milky Way over the VLT](https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/ESO-VLT-Laser-phot-0a-99.jpg/1280px-ESO-VLT-Laser-phot-0a-99.jpg)
 
-*The Milky Way — the original inspiration. Each point of light is a thing worth knowing.*
+*The Milky Way over the ESO's Very Large Telescope. This is roughly what I was going for.*
 
 ---
 
-I've always thought of learning as accumulation. Not a checklist, not a linear path — more like a galaxy. Concepts cluster around each other by gravitational affinity. Some burn bright and central; others orbit distantly, connected by invisible forces.
+Most portfolio sites are lists. Here's my work history. Here are my skills. Here's my GitHub. They get the job done, but they don't say much about *how* the person thinks.
 
-So when I built my portfolio, I made that literal.
+I've always thought of learning as something that accumulates in clusters, not lines. Concepts pull each other into orbit. Some ideas are foundational — dense, central, everything else revolves around them. Others sit on the periphery, loosely connected but still part of the same system. It looks less like a roadmap and more like a galaxy.
 
-This is the full technical breakdown of how it works.
+So I made that literal.
+
+---
+
+## The Idea
+
+Every concept I've learned becomes a star. The site opens on a 3D galaxy — 7,000 background stars in a procedurally generated spiral, with brighter colored dots scattered through the arms representing things I actually know. Hover a dot, get a summary. Click it, go deeper.
+
+But a static star map felt too... static. So there are three modes you can scroll through:
+
+- **Galaxy** — concepts embedded in the spiral arms, auto-rotating
+- **Clusters** — concepts rearranged by semantic similarity using UMAP + in-browser embeddings
+- **Timeline** — concepts sorted chronologically and arranged as real constellations
+
+The idea is that each mode tells a different story about the same knowledge. Galaxy shows breadth. Clusters shows how ideas relate. Timeline shows how I got here.
 
 ---
 
@@ -909,348 +923,129 @@ This is the full technical breakdown of how it works.
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 15 (App Router) |
-| 3D Engine | Three.js via React Three Fiber |
-| Post-processing | three/examples UnrealBloomPass |
-| Embeddings | Hugging Face Transformers.js (browser) |
-| Dimensionality Reduction | UMAP-js (client-side) |
-| Math Rendering | KaTeX |
+| 3D | Three.js via React Three Fiber |
+| Post-processing | UnrealBloom (three/examples) |
+| Embeddings | Hugging Face Transformers.js |
+| Dim. reduction | UMAP-js (runs in-browser) |
+| Math | KaTeX |
 | Auth | NextAuth + Google OAuth |
 | Database | Supabase (PostgreSQL) |
 | Deployment | Vercel |
 
-Everything runs in the browser. No server-side 3D. No pre-baked images. The galaxy is generated fresh on every page load.
+Everything computes live in the browser. The galaxy regenerates on every page load. Embeddings run client-side. Nothing is pre-baked.
 
 ---
 
-## Part 1: Procedural Galaxy Generation
+## Building the Galaxy
 
-![Spiral galaxy NGC 1300](https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/NGC_1300_HST.jpg/1280px-NGC_1300_HST.jpg)
+![NGC 1300 spiral galaxy](https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/NGC_1300_HST.jpg/1280px-NGC_1300_HST.jpg)
 
-*NGC 1300 — a barred spiral galaxy. The structure I'm approximating: dense core, outer core haze, two spiral arms.*
+*NGC 1300 — the reference. Dense core, outer haze, two spiral arms.*
 
-The galaxy renders **7,000 stars**, distributed across four structural zones:
+Real galaxies have structure: a bright central core, a diffuse outer disk, and arms that wind outward in logarithmic spirals. I wanted to approximate that.
 
-| Zone | Count | Distribution |
-|---|---|---|
-| Core | 1,750 | Gaussian, tight ($\\sigma_x = 33$, $\\sigma_y = 33$) |
-| Outer core | 1,750 | Gaussian, wide ($\\sigma_x = 100$, $\\sigma_y = 100$) |
-| Spiral arms (×2) | 2,100 | Spiral transform + Gaussian scatter |
-| Haze | 3,500 | Diffuse blue nebula overlay |
+The 7,000 background stars are distributed across four zones. The core uses tight Gaussian sampling — most stars clumped near the center, with spread controlled by the standard deviation. The spiral arms work by generating Gaussian blobs and then wrapping them with a spiral transform: compute the polar angle from the arm offset, then rotate it further based on radius. The farther from the center, the more the arm has wound around:
 
-### The Gaussian Star Sampler
+$$\\theta = \\phi_{\\text{arm}} + \\arctan\\!\\left(\\frac{y}{x}\\right) + \\frac{r}{d} \\cdot k$$
 
-Each core star is placed by sampling from a 2D Gaussian:
+Where $k = 3.0$ controls how tightly the arms wind. There's also a blue haze layer — soft, diffuse points with low opacity — that fills in the interstellar medium and gives the galaxy that soft nebular glow when the bloom hits it.
 
-$$x \\sim \\mathcal{N}(0,\\, \\sigma_{\\text{core}}), \\quad y \\sim \\mathcal{N}(0,\\, \\sigma_{\\text{core}}), \\quad z \\sim \\mathcal{N}(0,\\, \\sigma_{\\text{thickness}})$$
+Star colors follow the real spectral distribution: 76% are warm orange K/G-type dwarfs, with rare blue-white O-type stars at the large end. The color and size both scale with spectral type.
 
-Using the Box-Muller transform for efficiency:
-
-$$z = \\sqrt{-2 \\ln U_1} \\cdot \\cos(2\\pi U_2), \\quad U_1, U_2 \\sim \\text{Uniform}(0, 1)$$
-
-\`\`\`ts
-function gaussianRandom(mean = 0, stdev = 1) {
-  const u = 1 - Math.random();
-  const v = Math.random();
-  const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-  return z * stdev + mean;
-}
-\`\`\`
-
-### The Spiral Transform
-
-Arm stars start as Gaussian blobs, then get wrapped into a logarithmic spiral. For arm $j$ with offset $\\phi_j = \\frac{2\\pi j}{N_{\\text{arms}}}$:
-
-$$r = \\sqrt{x^2 + y^2}$$
-$$\\theta = \\phi_j + \\arctan\\!\\left(\\frac{y}{x}\\right) + \\frac{r}{d_{\\text{arm}}} \\cdot k_{\\text{spiral}}$$
-$$\\vec{p} = \\begin{pmatrix} r\\cos\\theta \\\\ z \\\\ r\\sin\\theta \\end{pmatrix} \\cdot s_{\\text{galaxy}}$$
-
-Where $k_{\\text{spiral}} = 3.0$ controls tightness and $s_{\\text{galaxy}} = 0.03$ scales everything to scene units.
-
-\`\`\`ts
-function spiral(x, y, z, offset) {
-  const r = Math.sqrt(x ** 2 + y ** 2);
-  let theta = offset;
-  theta += x > 0 ? Math.atan(y / x) : Math.atan(y / x) + Math.PI;
-  theta += (r / ARM_X_DIST) * SPIRAL_FACTOR;
-  return new THREE.Vector3(
-    r * Math.cos(theta) * GALAXY_SCALE,
-    z * GALAXY_SCALE,
-    r * Math.sin(theta) * GALAXY_SCALE
-  );
-}
-\`\`\`
-
-### Star Color Distribution
-
-Real stars follow a spectral type distribution (O, B, A, F, G, K, M). I approximate this with weighted sampling across 6 color buckets:
-
-| Color | Hex | Spectral type | Weight |
-|---|---|---|---|
-| Orange | \`#ffcc6f\` | K/G | 76.45% |
-| Pale orange | \`#ffd2a1\` | G | 12.10% |
-| White | \`#fff4ea\` | F | 7.60% |
-| Pure white | \`#f8f7ff\` | A | 3.00% |
-| Light blue | \`#cad7ff\` | B | 0.60% |
-| Blue-white | \`#aabfff\` | O/B | 0.13% |
-
-Most stars are cool orange dwarfs. The rare blue-white O-type stars are large, hot, and short-lived — modeled here as the biggest point sizes.
+All 7,000 stars are a single draw call — one `BufferGeometry` with packed position, color, and size arrays. With additive blending, overlapping stars brighten each other instead of occluding — that's what makes the core look genuinely luminous.
 
 ---
 
-## Part 2: Rendering — BufferGeometry + Additive Blending
+## Making It Glow: Unreal Bloom
 
-![Three.js points rendering](https://threejs.org/examples/screenshots/webgl_points_sprites.jpg)
+The most impactful thing I added was post-processing bloom. Without it, the galaxy looks like a flat scatterplot. With it, the core pulses with light and the arms feel like they're made of something.
 
-*Three.js points with additive blending — overlapping points brighten rather than occlude.*
+![bloom effect](https://docs.unrealengine.com/4.27/Images/RenderingAndGraphics/PostProcessEffects/Bloom/bloom_star_4.webp)
 
-Stars are rendered as a single \`THREE.Points\` object using packed BufferGeometry. This is the key to rendering 7,000 stars efficiently — one draw call, no per-star overhead.
+*Before/after bloom — the bright pixels "bleed" into surrounding areas.*
 
-Each star's position, color, and size are packed into flat Float32Arrays:
+The implementation uses Three.js's `UnrealBloomPass`, wired into an `EffectComposer` that replaces the default render loop. The key quirk: the bloom pass needs to run in a `useFrame` with priority `1`, *after* the standard render at priority `0`. Get that wrong and you get flickering.
 
-\`\`\`ts
-const positions = new Float32Array(stars.length * 3);
-const colors    = new Float32Array(stars.length * 3);
-const sizes     = new Float32Array(stars.length);
-
-stars.forEach((s, i) => {
-  positions.set([s.position.x, s.position.y, s.position.z], i * 3);
-  colors.set([s.color.r, s.color.g, s.color.b], i * 3);
-  sizes[i] = s.size;
-});
-\`\`\`
-
-The material uses **additive blending** — where stars overlap, their colors add together rather than one occluding the other. This is what gives the core that bright, overexposed glow:
-
-\`\`\`ts
-<pointsMaterial
-  blending={THREE.AdditiveBlending}
-  vertexColors
-  depthWrite={false}
-  transparent
-  opacity={0.9}
-/>
-\`\`\`
-
-### The Star Texture
-
-Each star is a soft radial gradient baked into a 64×64 canvas texture at startup:
-
-$$\\alpha(r) = \\begin{cases} 1.0 & r < 0.3 \\\\ 0.8 & r = 0.3 \\\\ 0.15 & r = 0.7 \\\\ 0.0 & r = 1.0 \\end{cases}$$
-
-The gradient gives stars their "glow" without any shader code. Combined with additive blending, even tiny point sizes produce a convincing stellar look.
+Parameters took a lot of tuning. Strength at 1.5 gives the cosmic feel without washing out the spiral structure. Threshold at 0.2 catches the stars but ignores the dark background. Radius at 0.4 gives a moderate spread — higher and it starts looking like vaseline on the lens.
 
 ---
 
-## Part 3: Bloom Post-Processing
+## The Three Modes
 
-The single most impactful visual effect is **Unreal Bloom** — a post-processing pass that extracts bright pixels, blurs them, and composites the result back onto the frame.
+### Galaxy
 
-![Bloom effect comparison](https://docs.unrealengine.com/4.27/Images/RenderingAndGraphics/PostProcessEffects/Bloom/bloom_star_4.webp)
+The default. Concept dots get placed in the spiral arms alongside the background stars. The camera auto-rotates slowly. You can drag to orbit, right-click drag to zoom. The dots animate in on load.
 
-*Before and after bloom. The bright core "bleeds" light into surrounding areas, creating the nebula halo effect.*
+### Clusters
 
-The pipeline:
+This one required the most engineering. The idea: what if the *positions* of concept dots were driven by semantic meaning, not arbitrary placement?
 
-\`\`\`ts
-const composer = new EffectComposer(gl);
-composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(
-  new THREE.Vector2(width, height),
-  1.5,   // strength
-  0.4,   // radius
-  0.2    // threshold
-);
-composer.addPass(bloom);
-composer.addPass(new OutputPass());
-\`\`\`
+I compute a 384-dimensional text embedding for every concept description using `Xenova/all-MiniLM-L6-v2` — Hugging Face Transformers.js, running entirely in-browser. Then UMAP reduces those 384-dimensional vectors to 3D coordinates:
 
-The bloom pass runs on a separate \`useFrame\` with priority 1, after the default render (priority 0). This is critical — if you render twice at the same priority, you get a flickering war between the two.
+$$\\text{embed}: \\text{description} \\to \\mathbb{R}^{384} \\xrightarrow{\\text{UMAP}} \\mathbb{R}^3$$
 
-**Tuning the parameters:**
-- **Strength 1.5** — bright enough to feel cosmic, low enough to not wash out the spiral structure
-- **Radius 0.4** — moderate spread; too high looks like lens smear
-- **Threshold 0.2** — captures stars but not the dark background
+The result: concepts that are semantically similar end up near each other in 3D space. ML concepts cluster together. Web dev concepts form their own neighborhood. Things I learned around the same time and context naturally group up — not because I told them to, but because the geometry of meaning put them there.
 
----
+I seed the UMAP PRNG so the layout is deterministic across sessions. Without a seed, it produces a different arrangement every run.
 
-## Part 4: Three Visualization Modes
+When you scroll from Galaxy to Clusters, the background stars scatter outward and fade — a dispersion animation that physically signals "you've left the galaxy." Each dot then smoothly flies from its arm position to its UMAP-computed cluster position over about 1.5 seconds, with a cubic ease-in-out curve so the motion feels physical and not robotic.
 
-The portfolio has three modes, switchable via scroll or the dot indicators at the bottom:
+### Timeline
 
-| Mode | Layout | Description |
-|---|---|---|
-| **Galaxy** | Procedural spiral | Stars + concept dots embedded in the galaxy arms |
-| **Clusters** | UMAP projection | Concepts rearranged by semantic similarity |
-| **Timeline** | Constellation paths | Concepts arranged chronologically, grouped into constellations |
-
-### Mode Transitions
-
-Concept dots are rendered as an **InstancedMesh** — one mesh, $N$ instances, updated each frame. Transitions between modes are animated by lerping each dot from its current position to its target position:
-
-$$\\vec{p}_i(t) = \\vec{p}_i^{\\text{prev}} + (\\vec{p}_i^{\\text{target}} - \\vec{p}_i^{\\text{prev}}) \\cdot f(t)$$
-
-Where $f(t)$ is a cubic ease-in-out:
-
-$$f(t) = \\begin{cases} 4t^3 & t < 0.5 \\\\ 1 - \\frac{(-2t+2)^3}{2} & t \\geq 0.5 \\end{cases}$$
-
-This gives the transition a physical feel — dots accelerate out of their old positions and decelerate into the new ones.
-
----
-
-## Part 5: Client-Side Embeddings + UMAP
-
-The **Clusters** mode is the technically most interesting feature. Every concept has a text description. I compute a 384-dimensional embedding for each one directly in the browser, then reduce to 3D with UMAP.
-
-**Model:** \`Xenova/all-MiniLM-L6-v2\` via Hugging Face Transformers.js
-
-$$\\text{embed}: \\text{string} \\to \\mathbb{R}^{384}$$
-
-UMAP then projects these to 3D positions that preserve neighborhood structure:
-
-$$\\text{UMAP}: \\mathbb{R}^{384} \\to \\mathbb{R}^{3}$$
-
-The key insight: semantically similar concepts end up spatially close. ML concepts cluster together. Web dev concepts form their own neighborhood. The galaxy self-organizes.
-
-To make the layout **deterministic** across page loads, I seed the UMAP PRNG:
-
-\`\`\`ts
-import { UMAP } from 'umap-js';
-const umap = new UMAP({ nComponents: 3, random: seededRandom(42) });
-const embedding3d = umap.fit(embeddings384d);
-\`\`\`
-
-Without the seed, UMAP produces a different layout every run — fine for exploration, confusing for a portfolio.
-
----
-
-## Part 6: The Constellation Timeline
-
-The Timeline mode is my favorite. Concepts are sorted chronologically, then assigned to named **constellations** — Orion, Cassiopeia, Ursa Major, and others. The positions come from real astronomical star coordinates, scaled to scene units.
+My favorite mode. Concepts are sorted by when I learned them, then assigned to real **constellations** — Orion, Cassiopeia, Ursa Major, Scorpius. The star positions come from actual astronomical coordinates, scaled to scene units. Each constellation's stick-figure lines are drawn with `LineBasicMaterial`, and inter-constellation connections use dashed lines to show the narrative thread between groups.
 
 ![Orion constellation](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Orion_IAU.svg/1200px-Orion_IAU.svg.png)
 
-*The Orion constellation — one of the patterns used to arrange concepts in the timeline.*
+*Orion — one of the constellation templates used to arrange concepts chronologically.*
 
-Each constellation is a data structure with:
+The sequencing of the animation matters a lot here. When you enter Timeline mode, the dots move first — taking about 1.6 seconds to settle into their positions. Only *then* do the constellation lines fade in. If they appeared immediately, you'd see them stretched across the screen before the dots arrived, which looks broken. Leaving Timeline is the reverse: lines fade out first, *then* the dots move. It took a few iterations to get this order right.
 
-- **Stars**: 3D positions (RA/Dec projected to Cartesian, then scaled)
-- **Connections**: Edge list for the stick-figure lines
-- **Offset**: Translation in scene space so constellations don't overlap
-
-Concepts fill constellation slots in chronological order. The first concept I learned goes into Orion's first star, and so on.
-
-### Animated Lines
-
-The constellation lines fade in *after* the dots have moved into position — a deliberate sequencing decision. If lines appeared immediately, you'd see them stretched across screen before the dots arrived:
-
-1. Mode changes to **timeline** → dots start moving (1.5s)
-2. After 1.6s → constellation lines and date labels fade in (0.8s)
-3. Leaving **timeline** → lines fade out first (0.5s), then dots move
-
-The inter-constellation connections use \`LineDashedMaterial\` to visually distinguish the narrative "path" from the structural "shape" of each constellation.
+Date labels and constellation names float above each grouping. Concept name labels appear below each dot. All of these are `@react-three/drei` `Html` components — DOM elements projected into 3D space via CSS transforms, which means they interact with the layout engine. I throttle position updates to every 10 frames to prevent layout thrash.
 
 ---
 
-## Part 7: Scroll-Driven Mode Switching
+## Scroll Behavior
 
-The scroll behavior is the trickiest part to get right. The galaxy occupies the full viewport height. As the user scrolls:
+Getting the scroll to feel right was the trickiest part of the whole build.
 
-- **Scroll down on Galaxy** → switch to Clusters
-- **Scroll down on Clusters** → switch to Timeline
-- **Scroll down on Timeline** → release the scroll lock, let the page continue
-- **Scroll up past Timeline** → re-engage the galaxy
+The galaxy occupies the full viewport. Scrolling *through* it shouldn't scroll the page — it should cycle through the three modes. Only after the third mode should the page continue scrolling to the sections below.
 
-This required intercepting \`wheel\` events at the document level with \`passive: false\` (so we can call \`preventDefault()\`):
+This means intercepting `wheel` events with `{ passive: false }` at the document level and calling `preventDefault()` when the visualization is in view. There's a debounce to prevent rapid-fire mode switching on high-velocity scrolls, and a "snap" system that detects when the user is stuck between the galaxy and the page content and resolves it cleanly.
 
-\`\`\`ts
-window.addEventListener('wheel', (e) => {
-  if (vizInView && !pastVisualization) {
-    e.preventDefault(); // prevent page scroll
-    if (e.deltaY > 0 && mode === 'timeline') {
-      setPastVisualization(true);
-      snapTo(vizHeight); // release
-    } else if (e.deltaY > 0) {
-      nextMode();
-    }
-  }
-}, { passive: false });
-\`\`\`
-
-The **dispersion animation** happens on the Galaxy → Clusters transition: the 7,000 background stars scatter outward to random positions, leaving only the concept dots visible. This gives a visual signal that you've left the galaxy. The reverse — dots gathering back into the spiral — plays when returning.
+Scrolling back up from the content section re-engages the galaxy. The transition back into Galaxy mode plays the dispersion animation in reverse — stars gather from their scattered positions back into the spiral.
 
 ---
 
-## Part 8: Galaxy Stars Dispersion
+## Everything Else
 
-When switching away from Galaxy mode, the background stars don't just disappear — they fly outward and fade:
+**KaTeX** — every description, post, and project on the site renders LaTeX. Display math with `$$...$$`, inline with `$...$`. A heuristic guards against treating prices like \$100M as math expressions. This matters for a portfolio in ML/research — you want to write $\\hat{y} = \\sigma(Wx + b)$ without workarounds.
 
-\`\`\`ts
-// Pre-compute random outward vectors for each star
-const disperseDirections = stars.map(() => {
-  return new THREE.Vector3(
-    (Math.random() - 0.5) * 2,
-    (Math.random() - 0.5) * 2,
-    (Math.random() - 0.5) * 2
-  ).normalize().multiplyScalar(15 + Math.random() * 25);
-});
+**Dark/light mode** — full theme toggle with CSS variables throughout. The galaxy adapts: dark mode is deep space, light mode is more like a cloudy day (still looks fine, if less dramatic).
 
-// Each frame: lerp positions and opacity
-for (let i = 0; i < stars.length; i++) {
-  starPos[i*3]   = basePos[i*3]   + dir.x * p; // p = [0,1]
-  starPos[i*3+1] = basePos[i*3+1] + dir.y * p;
-  starPos[i*3+2] = basePos[i*3+2] + dir.z * p;
-}
-material.opacity = 0.9 * (1 - p);
-\`\`\`
+**CMS** — sign in with Google (allowlisted to my account) and you can create, edit, or delete posts, projects, and concepts directly on the live site. No separate admin panel. It saves to Supabase and immediately reflects on the page.
 
-The dispersion progress $p$ is driven by a smooth controller that targets 0 in Galaxy mode and 1 in all other modes, interpolated at 1.2 units/second.
-
----
-
-## Part 9: Performance Budget
-
-Running 7,000 animated points + post-processing in the browser is real work. Here's the performance profile:
-
-| Component | GPU Cost | Notes |
-|---|---|---|
-| Background stars (7,000) | Low | Single BufferGeometry draw call |
-| Concept dots (InstancedMesh) | Low | One draw call, N instances |
-| Bloom (UnrealBloomPass) | Medium | 3 blur passes per frame |
-| UMAP computation | High (one-time) | ~200ms, runs once on load |
-| Constellation lines | Very low | Static LineSegments |
-| Html labels (drei) | Medium | CSS3D, not WebGL |
-
-The main performance risk is the \`Html\` labels from \`@react-three/drei\`. Each label is a DOM element projected into 3D space via CSS transforms. When many are visible simultaneously (timeline + concept labels), this can cause layout thrash. I throttle label position updates to every 10 frames to mitigate this.
-
----
-
-## Part 10: KaTeX Everywhere
-
-Every concept summary, post, and project description supports inline and display LaTeX via KaTeX:
-
-$$\\nabla \\cdot \\mathbf{E} = \\frac{\\rho}{\\varepsilon_0}$$
-
-The renderer handles all four delimiter styles: \`$$...$$\`, \`\\[...\\]\`, \`$...$\`, and \`\\(...\\)\`. A subtle heuristic prevents currency amounts like "\$150M" from being parsed as math — only strings with LaTeX-specific syntax (\`\\\`, \`^\`, \`_\`, \`{}\`) or short length are treated as math expressions.
+**Concepts** — the starred items in the galaxy. Each has a short summary, a long summary, a date learned, and a 3D position. The short summary is editable in place. The galaxy literally grows when I add new ones.
 
 ---
 
 ## What I'd Do Differently
 
-1. **WebGPU** — Three.js r163+ supports WebGPU. The bloom pass in particular would benefit enormously from compute shaders
-2. **Worker threads for UMAP** — currently blocks the main thread for ~200ms on first load; moving to a Web Worker would eliminate the jank
-3. **Shader-based halos** — the star glow is currently a canvas texture hack; a proper GLSL vertex/fragment shader would be cleaner and cheaper
-4. **Frustum culling for labels** — all Html labels update every N frames regardless of visibility; culling off-screen labels would help at high concept counts
+A few things I'd change if I were starting fresh:
+
+- **UMAP in a Web Worker** — it runs on the main thread right now, which causes a ~200ms freeze on first load. Easy fix I haven't gotten around to.
+- **Shader-based star glow** — currently the glow is a radial gradient baked into a canvas texture. A GLSL fragment shader would be cleaner and more flexible.
+- **Lazy-loaded embeddings** — the Transformers.js model is large. Deferring it until Clusters mode is first requested would improve initial load time.
+- **More constellations** — the Timeline runs out of defined constellations if you add enough concepts. I need to define more or build a procedural fallback.
 
 ---
 
 ## Resources
 
-- 💻 [GitHub: sunnydigital/sunny-portfolio](https://github.com/sunnydigital/sunny-portfolio)
-- 🌐 [Live site: sunnyson.dev](https://sunnyson.dev)
+- 💻 [GitHub](https://github.com/sunnydigital/sunny-portfolio)
 - 📖 [Three.js Docs](https://threejs.org/docs/)
 - 📖 [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
-- 📖 [UMAP Paper (McInnes et al., 2018)](https://arxiv.org/abs/1802.03426)
-- 📖 [UnrealBloom in Three.js](https://threejs.org/examples/#webgl_postprocessing_unreal_bloom)`,
+- 📖 [UMAP Paper — McInnes et al., 2018](https://arxiv.org/abs/1802.03426)
+- 📖 [Ho et al. DDPM — for the bloom inspiration](https://arxiv.org/abs/2006.11239)`,
     date: "2024-08-05",
     tags: ["Three.js", "Next.js", "WebGL", "Portfolio", "UMAP", "React Three Fiber"],
   },
