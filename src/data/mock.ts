@@ -709,9 +709,9 @@ When working with embeddings:
     excerpt: "A deep dive into training unconditional Denoising Diffusion Probabilistic Models on cancerous and non-cancerous tissue patches — architecture, noise schedules, ablation studies, and what the reverse diffusion process actually looks like.",
     content: `# Generating Histopathology: DDPMs on the Patch Camelyon Dataset
 
-![Reverse diffusion on histopathologic tissue](https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Histopathology_of_invasive_ductal_carcinoma.jpg/1280px-Histopathology_of_invasive_ductal_carcinoma.jpg)
+<div style="display:flex;gap:0.5rem;justify-content:center;margin:1.5rem 0;flex-wrap:wrap"><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/cancerous/cancerous0.jpeg" alt="Cancerous patch" style="width:23%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/cancerous/cancerous1.jpeg" alt="Cancerous patch" style="width:23%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/non_cancerous/non_cancerous0.jpeg" alt="Non-cancerous patch" style="width:23%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/non_cancerous/non_cancerous1.jpeg" alt="Non-cancerous patch" style="width:23%;border-radius:6px" /></div>
 
-*H&E-stained histopathologic tissue — the kind of images DDPMs learn to synthesize from pure Gaussian noise.*
+*Real PCam patches used in this project — H&E-stained tissue the DDPMs learn to synthesize from pure Gaussian noise.*
 
 <div style="display:flex;gap:1rem;justify-content:center;margin:1.5rem 0"><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/assets/slide1.png" alt="Slide 1" style="width:49%;border-radius:8px;max-width:100%" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/assets/slide2.png" alt="Slide 2" style="width:49%;border-radius:8px;max-width:100%" /></div>
 
@@ -738,9 +738,9 @@ PCam is a binary image classification benchmark derived from the **Camelyon16** 
 
 The class balance is perfect by construction. The challenge: **cancerous patches don't always look dramatically different**. Metastatic cells can be subtle, making this dataset hard for classifiers and, as I'd discover, interesting for generative models.
 
-![PCam sample patches](https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Histopathological_Cancer_Cell_Detection.png/640px-Histopathological_Cancer_Cell_Detection.png)
+<div style="display:flex;gap:0.5rem;justify-content:center;margin:1.5rem 0;flex-wrap:wrap"><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/non_cancerous/non_cancerous2.jpeg" alt="Non-cancerous" style="width:18%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/non_cancerous/non_cancerous3.jpeg" alt="Non-cancerous" style="width:18%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/non_cancerous/non_cancerous4.jpeg" alt="Non-cancerous" style="width:18%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/cancerous/cancerous2.jpeg" alt="Cancerous" style="width:18%;border-radius:6px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gt_images/cancerous/cancerous3.jpeg" alt="Cancerous" style="width:18%;border-radius:6px" /></div>
 
-*Histopathologic tissue patches. The differences between cancerous and non-cancerous regions are real but subtle.*
+*Actual PCam ground truth patches from the dataset. The differences are real but subtle — can you tell which are cancerous?*
 
 ---
 
