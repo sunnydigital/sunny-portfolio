@@ -958,7 +958,7 @@ Where $k = 3.0$ controls how tightly the arms wind. There's also a blue haze lay
 
 Star colors follow the real spectral distribution: 76% are warm orange K/G-type dwarfs, with rare blue-white O-type stars at the large end. The color and size both scale with spectral type.
 
-All 7,000 stars are a single draw call — one `BufferGeometry` with packed position, color, and size arrays. With additive blending, overlapping stars brighten each other instead of occluding — that's what makes the core look genuinely luminous.
+All 7,000 stars are a single draw call — one \`BufferGeometry\` with packed position, color, and size arrays. With additive blending, overlapping stars brighten each other instead of occluding — that's what makes the core look genuinely luminous.
 
 ---
 
@@ -970,7 +970,7 @@ The most impactful thing I added was post-processing bloom. Without it, the gala
 
 *Before/after bloom — the bright pixels "bleed" into surrounding areas.*
 
-The implementation uses Three.js's `UnrealBloomPass`, wired into an `EffectComposer` that replaces the default render loop. The key quirk: the bloom pass needs to run in a `useFrame` with priority `1`, *after* the standard render at priority `0`. Get that wrong and you get flickering.
+The implementation uses Three.js's \`UnrealBloomPass\`, wired into an \`EffectComposer\` that replaces the default render loop. The key quirk: the bloom pass needs to run in a \`useFrame\` with priority \`1\`, *after* the standard render at priority \`0\`. Get that wrong and you get flickering.
 
 Parameters took a lot of tuning. Strength at 1.5 gives the cosmic feel without washing out the spiral structure. Threshold at 0.2 catches the stars but ignores the dark background. Radius at 0.4 gives a moderate spread — higher and it starts looking like vaseline on the lens.
 
@@ -986,7 +986,7 @@ The default. Concept dots get placed in the spiral arms alongside the background
 
 This one required the most engineering. The idea: what if the *positions* of concept dots were driven by semantic meaning, not arbitrary placement?
 
-I compute a 384-dimensional text embedding for every concept description using `Xenova/all-MiniLM-L6-v2` — Hugging Face Transformers.js, running entirely in-browser. Then UMAP reduces those 384-dimensional vectors to 3D coordinates:
+I compute a 384-dimensional text embedding for every concept description using \`Xenova/all-MiniLM-L6-v2\` — Hugging Face Transformers.js, running entirely in-browser. Then UMAP reduces those 384-dimensional vectors to 3D coordinates:
 
 $$\\text{embed}: \\text{description} \\to \\mathbb{R}^{384} \\xrightarrow{\\text{UMAP}} \\mathbb{R}^3$$
 
@@ -998,7 +998,7 @@ When you scroll from Galaxy to Clusters, the background stars scatter outward an
 
 ### Timeline
 
-My favorite mode. Concepts are sorted by when I learned them, then assigned to real **constellations** — Orion, Cassiopeia, Ursa Major, Scorpius. The star positions come from actual astronomical coordinates, scaled to scene units. Each constellation's stick-figure lines are drawn with `LineBasicMaterial`, and inter-constellation connections use dashed lines to show the narrative thread between groups.
+My favorite mode. Concepts are sorted by when I learned them, then assigned to real **constellations** — Orion, Cassiopeia, Ursa Major, Scorpius. The star positions come from actual astronomical coordinates, scaled to scene units. Each constellation's stick-figure lines are drawn with \`LineBasicMaterial\`, and inter-constellation connections use dashed lines to show the narrative thread between groups.
 
 ![Orion constellation](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Orion_IAU.svg/1200px-Orion_IAU.svg.png)
 
@@ -1006,7 +1006,7 @@ My favorite mode. Concepts are sorted by when I learned them, then assigned to r
 
 The sequencing of the animation matters a lot here. When you enter Timeline mode, the dots move first — taking about 1.6 seconds to settle into their positions. Only *then* do the constellation lines fade in. If they appeared immediately, you'd see them stretched across the screen before the dots arrived, which looks broken. Leaving Timeline is the reverse: lines fade out first, *then* the dots move. It took a few iterations to get this order right.
 
-Date labels and constellation names float above each grouping. Concept name labels appear below each dot. All of these are `@react-three/drei` `Html` components — DOM elements projected into 3D space via CSS transforms, which means they interact with the layout engine. I throttle position updates to every 10 frames to prevent layout thrash.
+Date labels and constellation names float above each grouping. Concept name labels appear below each dot. All of these are \`@react-three/drei\` \`Html\` components — DOM elements projected into 3D space via CSS transforms, which means they interact with the layout engine. I throttle position updates to every 10 frames to prevent layout thrash.
 
 ---
 
@@ -1016,7 +1016,7 @@ Getting the scroll to feel right was the trickiest part of the whole build.
 
 The galaxy occupies the full viewport. Scrolling *through* it shouldn't scroll the page — it should cycle through the three modes. Only after the third mode should the page continue scrolling to the sections below.
 
-This means intercepting `wheel` events with `{ passive: false }` at the document level and calling `preventDefault()` when the visualization is in view. There's a debounce to prevent rapid-fire mode switching on high-velocity scrolls, and a "snap" system that detects when the user is stuck between the galaxy and the page content and resolves it cleanly.
+This means intercepting \`wheel\` events with \`{ passive: false }\` at the document level and calling \`preventDefault()\` when the visualization is in view. There's a debounce to prevent rapid-fire mode switching on high-velocity scrolls, and a "snap" system that detects when the user is stuck between the galaxy and the page content and resolves it cleanly.
 
 Scrolling back up from the content section re-engages the galaxy. The transition back into Galaxy mode plays the dispersion animation in reverse — stars gather from their scattered positions back into the spiral.
 
@@ -1024,7 +1024,7 @@ Scrolling back up from the content section re-engages the galaxy. The transition
 
 ## Everything Else
 
-**KaTeX** — every description, post, and project on the site renders LaTeX. Display math with `$$...$$`, inline with `$...$`. A heuristic guards against treating prices like \$100M as math expressions. This matters for a portfolio in ML/research — you want to write $\\hat{y} = \\sigma(Wx + b)$ without workarounds.
+**KaTeX** — every description, post, and project on the site renders LaTeX. Display math with \`$$...$$\`, inline with \`$...$\`. A heuristic guards against treating prices like \$100M as math expressions. This matters for a portfolio in ML/research — you want to write $\\hat{y} = \\sigma(Wx + b)$ without workarounds.
 
 **Dark/light mode** — full theme toggle with CSS variables throughout. The galaxy adapts: dark mode is deep space, light mode is more like a cloudy day (still looks fine, if less dramatic).
 
