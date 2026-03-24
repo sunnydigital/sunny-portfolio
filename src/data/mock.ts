@@ -873,13 +873,20 @@ More broadly: diffusion models are remarkable at capturing **texture distributio
 
 ---
 
-## Resources
+## Citations & Sources
 
-- 📄 [Paper (full writeup)](https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/DDPMs%20for%20Synthetic%20Histopathologic%20Image%20Generation%20Paper.pdf)
-- 💻 [GitHub: sunnydigital/ddpm-histo-gen](https://github.com/sunnydigital/ddpm-histo-gen)
-- 📊 [PCam Dataset](https://github.com/basveeling/pcam)
-- 📖 [Ho et al. (2020) — Original DDPM paper](https://arxiv.org/abs/2006.11239)
-- 📖 [Nichol & Dhariwal (2021) — Improved DDPMs](https://arxiv.org/abs/2102.09672)`,
+| # | Reference | Type | Link |
+|---|---|---|---|
+| 1 | Ho, J., Jain, A., & Abbeel, P. (2020). *Denoising Diffusion Probabilistic Models*. NeurIPS 2020. | Paper | [arxiv.org/abs/2006.11239](https://arxiv.org/abs/2006.11239) |
+| 2 | Nichol, A., & Dhariwal, P. (2021). *Improved Denoising Diffusion Probabilistic Models*. ICML 2021. | Paper | [arxiv.org/abs/2102.09672](https://arxiv.org/abs/2102.09672) |
+| 3 | Ronneberger, O., Fischer, P., & Brox, T. (2015). *U-Net: Convolutional Networks for Biomedical Image Segmentation*. MICCAI 2015. | Paper | [arxiv.org/abs/1505.04597](https://arxiv.org/abs/1505.04597) |
+| 4 | Veeling, B., Linmans, J., Winkens, J., Cohen, T., & Welling, M. (2018). *Rotation Equivariant CNNs for Digital Pathology*. MICCAI 2018. | Dataset | [arxiv.org/abs/1806.03962](https://arxiv.org/abs/1806.03962) |
+| 5 | Bándi, P. et al. (2018). *From Detection of Individual Metastases to Classification of Lymph Node Status at the Patient Level: The CAMELYON17 Challenge*. IEEE TMI. | Dataset | [doi.org/10.1109/TMI.2018.2867350](https://doi.org/10.1109/TMI.2018.2867350) |
+| 6 | Wang, Z. et al. (2004). *Image Quality Assessment: From Error Visibility to Structural Similarity*. IEEE TIP. | Metric | [doi.org/10.1109/TIP.2003.819861](https://doi.org/10.1109/TIP.2003.819861) |
+| 7 | Dhariwal, P., & Nichol, A. (2021). *Diffusion Models Beat GANs on Image Synthesis*. NeurIPS 2021. | Paper | [arxiv.org/abs/2105.05233](https://arxiv.org/abs/2105.05233) |
+| 8 | Vaswani, A. et al. (2017). *Attention Is All You Need*. NeurIPS 2017. | Paper | [arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762) |
+| 9 | Son, S. (2022). *DDPMs for Synthetic Histopathologic Image Generation*. NYU CSCI-GA.2271 Final Project. | Report | [GitHub PDF](https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/DDPMs%20for%20Synthetic%20Histopathologic%20Image%20Generation%20Paper.pdf) |
+| 10 | PCam Dataset — Patch Camelyon. Radboud UMC + UMCU. | Dataset | [github.com/basveeling/pcam](https://github.com/basveeling/pcam) |`,
     date: "2022-12-18",
     tags: ["Diffusion Models", "Medical Imaging", "Computer Vision", "PyTorch", "Deep Learning", "PCam"],
   },
