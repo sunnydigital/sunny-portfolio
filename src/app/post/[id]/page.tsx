@@ -38,6 +38,7 @@ export default function PostDetail() {
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
+  const [date, setDate] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -57,6 +58,7 @@ export default function PostDetail() {
     setTitle(basePost.title);
     setExcerpt(basePost.excerpt);
     setContent(basePost.content);
+    setDate(basePost.date);
     setTags([...basePost.tags]);
     setImages(basePost.images ?? []);
     // Apply DB overrides
@@ -65,6 +67,7 @@ export default function PostDetail() {
         if (data.title) setTitle(data.title);
         if (data.excerpt) setExcerpt(data.excerpt);
         if (data.content) setContent(data.content);
+        if (data.date) setDate(data.date);
         if (data.tags) setTags(data.tags);
         if (data.images) setImages(data.images);
       }
@@ -80,7 +83,7 @@ export default function PostDetail() {
   }
 
   const handleSave = () => {
-    saveToDb("posts", { id: basePost.id, title, excerpt, content, tags, images }).catch(() => {});
+    saveToDb("posts", { id: basePost.id, title, excerpt, content, date, tags, images }).catch(() => {});
     setEditing(false);
   };
 
@@ -88,6 +91,7 @@ export default function PostDetail() {
     setTitle(basePost.title);
     setExcerpt(basePost.excerpt);
     setContent(basePost.content);
+    setDate(basePost.date);
     setTags([...basePost.tags]);
     setImages(basePost.images ?? []);
     setEditing(false);
@@ -120,7 +124,17 @@ export default function PostDetail() {
         </button>
 
         <div className="mb-2 text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-          {new Date(basePost.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+          {editing ? (
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="bg-transparent focus:outline-none text-xs font-mono cursor-pointer"
+              style={{ color: "var(--text-muted)", border: "1px solid var(--border)", borderRadius: "6px", padding: "2px 6px" }}
+            />
+          ) : (
+            new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+          )}
         </div>
 
         {editing ? (
