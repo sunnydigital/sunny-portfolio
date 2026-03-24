@@ -768,7 +768,7 @@ $$\\mathcal{L} = \\mathbb{E}_{x_0, \\epsilon, t}\\left[\\|\\epsilon - \\epsilon_
 
 The denoising network is a **U-Net** — the same architecture that's been the workhorse of medical image segmentation since 2015. It's a natural fit: skip connections allow the model to preserve fine-grained spatial details while the bottleneck captures global structure.
 
-![U-Net architecture](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Example_architecture_of_U-Net_for_road_surface_detection.png/1280px-Example_architecture_of_U-Net_for_road_surface_detection.png)
+![U-Net architecture](https://raw.githubusercontent.com/zhixuhao/unet/master/img/u-net-architecture.png)
 
 *The U-Net encoder-decoder with skip connections — adapted for diffusion by injecting timestep embeddings at each layer.*
 
