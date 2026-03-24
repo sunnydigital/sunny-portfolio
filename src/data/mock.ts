@@ -713,6 +713,8 @@ When working with embeddings:
 
 *H&E-stained histopathologic tissue — the kind of images DDPMs learn to synthesize from pure Gaussian noise.*
 
+<div style="display:flex;gap:1rem;justify-content:center;margin:1.5rem 0"><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/assets/slide1.png" alt="Slide 1" style="width:49%;border-radius:8px;max-width:100%" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/assets/slide2.png" alt="Slide 2" style="width:49%;border-radius:8px;max-width:100%" /></div>
+
 ---
 
 Generative AI has a well-known obsession with faces, landscapes, and anime characters. I wanted to ask a different question: what happens when you point a **Denoising Diffusion Probabilistic Model** at histopathologic tissue patches — and can you tell the difference between cancerous and non-cancerous samples just by looking at what the model generates?
@@ -736,9 +738,9 @@ PCam is a binary image classification benchmark derived from the **Camelyon16** 
 
 The class balance is perfect by construction. The challenge: **cancerous patches don't always look dramatically different**. Metastatic cells can be subtle, making this dataset hard for classifiers and, as I'd discover, interesting for generative models.
 
-![PCam sample patches](https://production-media.paperswithcode.com/datasets/Screenshot_2021-01-26_at_11.11.52.png)
+![PCam sample patches](https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Histopathological_Cancer_Cell_Detection.png/640px-Histopathological_Cancer_Cell_Detection.png)
 
-*Sample patches from PCam. Left: non-cancerous. Right: cancerous. The differences are real but subtle.*
+*Histopathologic tissue patches. The differences between cancerous and non-cancerous regions are real but subtle.*
 
 ---
 
@@ -766,7 +768,7 @@ $$\\mathcal{L} = \\mathbb{E}_{x_0, \\epsilon, t}\\left[\\|\\epsilon - \\epsilon_
 
 The denoising network is a **U-Net** — the same architecture that's been the workhorse of medical image segmentation since 2015. It's a natural fit: skip connections allow the model to preserve fine-grained spatial details while the bottleneck captures global structure.
 
-![U-Net architecture](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/u-net-architecture.png)
+![U-Net architecture](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Example_architecture_of_U-Net_for_road_surface_detection.png/1280px-Example_architecture_of_U-Net_for_road_surface_detection.png)
 
 *The U-Net encoder-decoder with skip connections — adapted for diffusion by injecting timestep embeddings at each layer.*
 
@@ -832,22 +834,19 @@ The cosine schedule advantage aligns with the original IDDPM paper (Nichol & Dha
 
 $$\\bar{\\alpha}_t^{\\text{cosine}} = \\frac{f(t)}{f(0)}, \\quad f(t) = \\cos^2\\left(\\frac{t/T + s}{1 + s} \\cdot \\frac{\\pi}{2}\\right)$$
 
-![Cosine vs linear noise schedule](https://huggingface.co/blog/assets/78_annotated-diffusion/noise_schedules.png)
+![Cosine vs linear noise schedule](https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/assets/slide2.png)
 
-*Cosine vs. linear noise schedules. The cosine schedule preserves more structure in the early timesteps.*
+*From the paper: cosine vs. linear noise schedules — the cosine schedule preserves more structure in early timesteps.*
 
 ---
 
 ## What Does Reverse Diffusion Look Like?
 
-Starting from pure Gaussian noise, the model progressively refines:
+Starting from pure Gaussian noise, the model progressively refines — dark nuclei emerge from color blobs, glandular structures sharpen, and fine chromatin detail resolves in the final steps. The model was never told what a nucleus looks like; it inferred the distribution of H&E staining entirely from data.
 
-- **Steps 1000→800**: Still mostly noise, but low-frequency color blobs emerge
-- **Steps 800→500**: Rough cellular texture appears — dark nuclei, pale cytoplasm
-- **Steps 500→200**: Glandular structures and cell boundaries sharpen
-- **Steps 200→0**: Fine details — nuclear chromatin patterns, staining gradients
+Here are four samples from the winning configuration (cosine schedule, no attention) — can *you* guess which are cancerous and which aren't?
 
-The emergent structure is striking. The model has never been told what a nucleus looks like — it inferred the distribution of H&E staining from the training data alone.
+<div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin:1.5rem 0"><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gifs/cosine_beta_schedule-no_attention05-interval10.gif" alt="Reverse Diffusion 1" style="width:49%;border-radius:8px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gifs/cosine_beta_schedule-no_attention26-interval10.gif" alt="Reverse Diffusion 2" style="width:49%;border-radius:8px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gifs/cosine_beta_schedule-no_attention43-interval10.gif" alt="Reverse Diffusion 3" style="width:49%;border-radius:8px" /><img src="https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/images/gifs/cosine_beta_schedule-no_attention47-interval10.gif" alt="Reverse Diffusion 4" style="width:49%;border-radius:8px" /></div>
 
 ---
 
@@ -876,7 +875,7 @@ More broadly: diffusion models are remarkable at capturing **texture distributio
 
 ## Resources
 
-- 📄 [Paper (full writeup)](https://github.com/sunnydigital/ddpm-histo-gen/blob/main/DDPMs%20for%20Synthetic%20Histopathologic%20Image%20Generation%20Paper.pdf)
+- 📄 [Paper (full writeup)](https://raw.githubusercontent.com/sunnydigital/ddpm-histo-gen/main/DDPMs%20for%20Synthetic%20Histopathologic%20Image%20Generation%20Paper.pdf)
 - 💻 [GitHub: sunnydigital/ddpm-histo-gen](https://github.com/sunnydigital/ddpm-histo-gen)
 - 📊 [PCam Dataset](https://github.com/basveeling/pcam)
 - 📖 [Ho et al. (2020) — Original DDPM paper](https://arxiv.org/abs/2006.11239)
