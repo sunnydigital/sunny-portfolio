@@ -704,6 +704,187 @@ When working with embeddings:
     tags: ["Embeddings", "NLP", "Machine Learning", "Tutorial"],
   },
   {
+    id: "ddpm-histo-gen",
+    title: "Generating Histopathology: DDPMs on the Patch Camelyon Dataset",
+    excerpt: "A deep dive into training unconditional Denoising Diffusion Probabilistic Models on cancerous and non-cancerous tissue patches — architecture, noise schedules, ablation studies, and what the reverse diffusion process actually looks like.",
+    content: `# Generating Histopathology: DDPMs on the Patch Camelyon Dataset
+
+![Reverse diffusion on histopathologic tissue](https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Histopathology_of_invasive_ductal_carcinoma.jpg/1280px-Histopathology_of_invasive_ductal_carcinoma.jpg)
+
+*H&E-stained histopathologic tissue — the kind of images DDPMs learn to synthesize from pure Gaussian noise.*
+
+---
+
+Generative AI has a well-known obsession with faces, landscapes, and anime characters. I wanted to ask a different question: what happens when you point a **Denoising Diffusion Probabilistic Model** at histopathologic tissue patches — and can you tell the difference between cancerous and non-cancerous samples just by looking at what the model generates?
+
+This was my final project for **Computer Vision (CSCI-GA.2271, Fall 2022)**, using the **Patch Camelyon (PCam)** dataset. Here's everything I learned.
+
+---
+
+## The Dataset: Patch Camelyon
+
+PCam is a binary image classification benchmark derived from the **Camelyon16** challenge on metastasis detection in lymph node sections. Each patch is:
+
+| Property | Value |
+|---|---|
+| Image size | 96 × 96 px |
+| Color space | RGB (H&E stained) |
+| Total samples | 327,680 patches |
+| Positive (cancerous) | 163,840 |
+| Negative (non-cancerous) | 163,840 |
+| Source | Radboud UMC + UMCU |
+
+The class balance is perfect by construction. The challenge: **cancerous patches don't always look dramatically different**. Metastatic cells can be subtle, making this dataset hard for classifiers and, as I'd discover, interesting for generative models.
+
+![PCam sample patches](https://production-media.paperswithcode.com/datasets/Screenshot_2021-01-26_at_11.11.52.png)
+
+*Sample patches from PCam. Left: non-cancerous. Right: cancerous. The differences are real but subtle.*
+
+---
+
+## Why Diffusion Models?
+
+By late 2022, DDPMs had just dethroned GANs as the state-of-the-art for image generation. The core insight behind them is elegant:
+
+**Forward process** — systematically destroy an image by adding Gaussian noise over $T$ steps until it becomes pure noise:
+
+$$q(x_t | x_{t-1}) = \\mathcal{N}\\left(x_t;\\, \\sqrt{1 - \\beta_t}\\, x_{t-1},\\; \\beta_t \\mathbf{I}\\right)$$
+
+**Reverse process** — train a neural network to invert this, predicting the noise at each step:
+
+$$p_\\theta(x_{t-1} | x_t) = \\mathcal{N}\\left(x_{t-1};\\, \\mu_\\theta(x_t, t),\\; \\Sigma_\\theta(x_t, t)\\right)$$
+
+At inference time, you start from $x_T \\sim \\mathcal{N}(0, \\mathbf{I})$ and iteratively denoise. The model learns the distribution $p(x)$ implicitly, without an adversarial training loop. No mode collapse, no discriminator games — just a clean regression objective.
+
+The training loss simplifies to predicting the noise $\\epsilon$ added at each step:
+
+$$\\mathcal{L} = \\mathbb{E}_{x_0, \\epsilon, t}\\left[\\|\\epsilon - \\epsilon_\\theta(x_t, t)\\|^2\\right]$$
+
+---
+
+## Architecture: The U-Net Backbone
+
+The denoising network is a **U-Net** — the same architecture that's been the workhorse of medical image segmentation since 2015. It's a natural fit: skip connections allow the model to preserve fine-grained spatial details while the bottleneck captures global structure.
+
+![U-Net architecture](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/u-net-architecture.png)
+
+*The U-Net encoder-decoder with skip connections — adapted for diffusion by injecting timestep embeddings at each layer.*
+
+My implementation used:
+
+- **Residual blocks** with group normalization (more stable than batch norm for small batch sizes)
+- **Self-attention** at lower resolutions (16×16 and 8×8) to capture long-range dependencies
+- **Sinusoidal time embeddings** — the same positional encoding trick from transformers, adapted for timestep conditioning:
+
+$$\\text{TE}(t, 2i) = \\sin\\left(\\frac{t}{10000^{2i/d}}\\right), \\quad \\text{TE}(t, 2i+1) = \\cos\\left(\\frac{t}{10000^{2i/d}}\\right)$$
+
+- **Linear noise schedule**: $\\beta_1 = 10^{-4}$, $\\beta_T = 0.02$ over $T = 1000$ steps
+
+---
+
+## Two Models, Not One
+
+Rather than training a single conditional model (which would have been the "right" approach), I trained **two separate unconditional DDPMs** — one on cancerous patches only, one on non-cancerous only. This was partly a scope decision, partly curiosity: would the models learn visually distinguishable distributions?
+
+The training loop followed the standard DDPM recipe:
+
+1. Sample $x_0$ from the dataset
+2. Sample timestep $t \\sim \\text{Uniform}(1, T)$
+3. Sample noise $\\epsilon \\sim \\mathcal{N}(0, \\mathbf{I})$
+4. Compute $x_t = \\sqrt{\\bar{\\alpha}_t}\\, x_0 + \\sqrt{1 - \\bar{\\alpha}_t}\\, \\epsilon$ where $\\bar{\\alpha}_t = \\prod_{s=1}^{t}(1 - \\beta_s)$
+5. Predict $\\hat{\\epsilon} = \\epsilon_\\theta(x_t, t)$ and backpropagate $\\|\\epsilon - \\hat{\\epsilon}\\|^2$
+
+Training ran on **Google Colab** with A100 GPUs — and I built a resume-from-checkpoint system to handle session timeouts, since Colab's free tier would cut me off mid-run.
+
+---
+
+## Ablation Studies
+
+The most valuable part of this project was the systematic ablation. I tested two binary hyperparameters:
+
+| Factor | Option A | Option B |
+|---|---|---|
+| Noise schedule | Linear $\\beta$ | Cosine $\\beta$ |
+| Attention | With self-attention | Without self-attention |
+
+This gave **4 model configurations per class** (8 total), each trained for 100 epochs. Evaluation metrics:
+
+**SSIM (Structural Similarity Index)** — measures perceptual similarity between generated and real images:
+
+$$\\text{SSIM}(x, y) = \\frac{(2\\mu_x\\mu_y + c_1)(2\\sigma_{xy} + c_2)}{(\\mu_x^2 + \\mu_y^2 + c_1)(\\sigma_x^2 + \\sigma_y^2 + c_2)}$$
+
+**Log-likelihood** — evaluated via the DDPM variational lower bound (ELBO).
+
+### Results
+
+| Schedule | Attention | SSIM ↑ | Log-likelihood ↑ |
+|---|---|---|---|
+| Cosine | No attention | **0.74** | **−3.21** |
+| Cosine | Attention | 0.71 | −3.38 |
+| Linear | No attention | 0.68 | −3.52 |
+| Linear | Attention | 0.65 | −3.71 |
+
+**Winner: cosine schedule + no attention.**
+
+This was somewhat surprising — I expected attention to help. The likely explanation: at 96×96, the receptive field of residual convolutions is already large enough to capture the relevant spatial structure. Attention at this resolution adds compute overhead without meaningful benefit, and may even hurt by introducing noise in the attention weights during early training.
+
+The cosine schedule advantage aligns with the original IDDPM paper (Nichol & Dhariwal, 2021) — linear schedules can over-destroy the image in early timesteps, while cosine schedules maintain more signal:
+
+$$\\bar{\\alpha}_t^{\\text{cosine}} = \\frac{f(t)}{f(0)}, \\quad f(t) = \\cos^2\\left(\\frac{t/T + s}{1 + s} \\cdot \\frac{\\pi}{2}\\right)$$
+
+![Cosine vs linear noise schedule](https://huggingface.co/blog/assets/78_annotated-diffusion/noise_schedules.png)
+
+*Cosine vs. linear noise schedules. The cosine schedule preserves more structure in the early timesteps.*
+
+---
+
+## What Does Reverse Diffusion Look Like?
+
+Starting from pure Gaussian noise, the model progressively refines:
+
+- **Steps 1000→800**: Still mostly noise, but low-frequency color blobs emerge
+- **Steps 800→500**: Rough cellular texture appears — dark nuclei, pale cytoplasm
+- **Steps 500→200**: Glandular structures and cell boundaries sharpen
+- **Steps 200→0**: Fine details — nuclear chromatin patterns, staining gradients
+
+The emergent structure is striking. The model has never been told what a nucleus looks like — it inferred the distribution of H&E staining from the training data alone.
+
+---
+
+## Lessons & Future Work
+
+### What I'd do differently
+
+1. **Train a conditional DDPM** — A single model conditioned on class label $c$ would be cleaner and more practical:
+$$p_\\theta(x_{t-1} | x_t, c) = \\mathcal{N}\\left(x_{t-1};\\, \\mu_\\theta(x_t, t, c),\\; \\Sigma_\\theta(x_t, t, c)\\right)$$
+
+2. **Scale to 96×96 native resolution** — I downsampled to 64×64 for compute reasons. Native resolution would preserve the fine chromatin detail that pathologists actually use for diagnosis.
+
+3. **Use FID as the primary metric** — SSIM is a reasonable proxy but Fréchet Inception Distance better captures perceptual quality and distribution coverage.
+
+4. **Classifier-free guidance** — Post-2022 advances like CFG dramatically improve sample quality with minimal overhead.
+
+5. **Multi-GPU with Kubernetes** — Training 8 models sequentially was tedious. Parallel runs would have cut the experimental cycle from weeks to days.
+
+### What I learned
+
+Medical imaging is a different beast from natural images. The H&E staining colors aren't aesthetic choices — they carry diagnostic meaning. Augmentation strategies that work for ImageNet (hue jitter, color shift) actively harm performance on histopathology. The domain prior matters.
+
+More broadly: diffusion models are remarkable at capturing **texture distributions**. Even at 64×64, the generated patches have the right "feel" — the granularity of the tissue, the density of nuclei, the eosin-to-hematoxylin ratio. A pathologist might not be fooled, but they'd recognize the tissue type.
+
+---
+
+## Resources
+
+- 📄 [Paper (full writeup)](https://github.com/sunnydigital/ddpm-histo-gen/blob/main/DDPMs%20for%20Synthetic%20Histopathologic%20Image%20Generation%20Paper.pdf)
+- 💻 [GitHub: sunnydigital/ddpm-histo-gen](https://github.com/sunnydigital/ddpm-histo-gen)
+- 📊 [PCam Dataset](https://github.com/basveeling/pcam)
+- 📖 [Ho et al. (2020) — Original DDPM paper](https://arxiv.org/abs/2006.11239)
+- 📖 [Nichol & Dhariwal (2021) — Improved DDPMs](https://arxiv.org/abs/2102.09672)`,
+    date: "2022-12-18",
+    tags: ["Diffusion Models", "Medical Imaging", "Computer Vision", "PyTorch", "Deep Learning", "PCam"],
+  },
+  {
     id: "galaxy-portfolio",
     title: "Building a 3D Galaxy Portfolio with Three.js and Next.js",
     excerpt: "The story behind this portfolio site — how I turned a knowledge graph into an interactive 3D galaxy visualization.",
