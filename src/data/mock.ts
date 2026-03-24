@@ -896,7 +896,7 @@ More broadly: diffusion models are remarkable at capturing **texture distributio
     excerpt: "How and why I built this website — a 3D galaxy where every star is something I've learned. The full story: the idea, the tech decisions, what broke, and what I'd do differently.",
     content: `# Building a 3D Galaxy Portfolio with Three.js and Next.js
 
-![Milky Way over the VLT](https://cdn.eso.org/images/screen/eso0627a.jpg)
+![Milky Way over the VLT](https://nkkcnuuijobroyf2.public.blob.vercel-storage.com/eso0627a.jpg)
 
 *The Milky Way over the ESO's Very Large Telescope. This is roughly what I was going for.*
 
