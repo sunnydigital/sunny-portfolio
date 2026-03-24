@@ -12,6 +12,13 @@ import { saveToDb, hideInDb } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { renderLatex } from "@/lib/latex";
 
+function inlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`([^`]+)`/g, '<code style="background:var(--border);padding:0.15rem 0.4rem;border-radius:4px;font-size:0.85em">$1</code>');
+}
+
 function markdownToHtml(md: string): string {
   // Step 1: Extract image tags and replace with placeholders so LaTeX doesn't touch the URLs
   const imagePlaceholders: string[] = [];
@@ -39,14 +46,14 @@ function markdownToHtml(md: string): string {
     tbl += '<table style="width:100%;border-collapse:collapse;font-size:0.9em">';
     tbl += '<thead><tr>';
     headers.forEach(h => {
-      tbl += `<th style="padding:0.5rem 1rem;border:1px solid var(--border);text-align:left;background:rgba(128,128,128,0.1);font-weight:600">${h}</th>`;
+      tbl += `<th style="padding:0.5rem 1rem;border:1px solid var(--border);text-align:left;background:rgba(128,128,128,0.1);font-weight:600">${inlineMarkdown(h)}</th>`;
     });
     tbl += '</tr></thead><tbody>';
     dataRows.forEach(row => {
       const cells = row.split('|').slice(1, -1).map(c => c.trim());
       tbl += '<tr>';
       cells.forEach(cell => {
-        tbl += `<td style="padding:0.5rem 1rem;border:1px solid var(--border)">${cell}</td>`;
+        tbl += `<td style="padding:0.5rem 1rem;border:1px solid var(--border)">${inlineMarkdown(cell)}</td>`;
       });
       tbl += '</tr>';
     });
