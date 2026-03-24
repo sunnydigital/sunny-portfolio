@@ -1279,7 +1279,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
     <div ref={containerRef} id="galaxy-container" className="w-full h-screen relative">
       {/* Dedication quote */}
       <div className="absolute top-20 left-6 z-10 pointer-events-none" style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontStyle: "italic", opacity: 0.6, maxWidth: "280px", lineHeight: 1.5 }}>
-        Dedicated to the bright lights that have guided me through wayward roads, tumultuous seas, and trying times
+        Dedicated to the bright lights<br />that have guided me through wayward roads, tumultuous seas, and trying times
       </div>
       {/* Mode title overlay */}
       <div className="absolute top-20 right-6 z-10 pointer-events-none text-right" style={{ transition: "opacity 0.6s ease" }}>
