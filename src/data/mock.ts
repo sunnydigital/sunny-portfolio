@@ -944,7 +944,7 @@ Everything computes live in the browser. The galaxy regenerates on every page lo
 
 ## Building the Galaxy
 
-![NGC 1300 spiral galaxy](https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/NGC_1300_HST.jpg/1280px-NGC_1300_HST.jpg)
+![NGC 1300 spiral galaxy](https://esahubble.org/media/archives/images/screen/heic0503a.jpg)
 
 *NGC 1300 — the reference. Dense core, outer haze, two spiral arms.*
 
@@ -966,7 +966,7 @@ All 7,000 stars are a single draw call — one \`BufferGeometry\` with packed po
 
 The most impactful thing I added was post-processing bloom. Without it, the galaxy looks like a flat scatterplot. With it, the core pulses with light and the arms feel like they're made of something.
 
-![bloom effect](https://docs.unrealengine.com/4.27/Images/RenderingAndGraphics/PostProcessEffects/Bloom/bloom_star_4.webp)
+![bloom effect](https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/screenshots/webgl_postprocessing_unreal_bloom.jpg)
 
 *Before/after bloom — the bright pixels "bleed" into surrounding areas.*
 
@@ -1000,9 +1000,9 @@ When you scroll from Galaxy to Clusters, the background stars scatter outward an
 
 My favorite mode. Concepts are sorted by when I learned them, then assigned to real **constellations** — Orion, Cassiopeia, Ursa Major, Scorpius. The star positions come from actual astronomical coordinates, scaled to scene units. Each constellation's stick-figure lines are drawn with \`LineBasicMaterial\`, and inter-constellation connections use dashed lines to show the narrative thread between groups.
 
-![Orion constellation](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Orion_IAU.svg/1200px-Orion_IAU.svg.png)
+![Orion constellation](https://cdn.eso.org/images/screen/eso0102a.jpg)
 
-*Orion — one of the constellation templates used to arrange concepts chronologically.*
+*The Orion nebula (ESO) — a reminder that even the night sky is data. The constellation's star positions are used to arrange concepts chronologically in the Timeline mode.*
 
 The sequencing of the animation matters a lot here. When you enter Timeline mode, the dots move first — taking about 1.6 seconds to settle into their positions. Only *then* do the constellation lines fade in. If they appeared immediately, you'd see them stretched across the screen before the dots arrived, which looks broken. Leaving Timeline is the reverse: lines fade out first, *then* the dots move. It took a few iterations to get this order right.
 
