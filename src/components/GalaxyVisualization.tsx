@@ -1325,11 +1325,11 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
           <button
             key={m}
             onClick={() => setMode(m)}
-            className="w-2.5 h-2.5 rounded-full transition-all duration-500 cursor-pointer"
+            className="w-8 h-1.5 rounded-full transition-all duration-500 cursor-pointer"
             style={{
               background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
               border: "none",
-              transform: mode === m ? "scale(1.3)" : "scale(1)",
+              transform: mode === m ? "scaleX(1.15)" : "scaleX(1)",
             }}
             aria-label={m === "galaxy" ? "Galaxy view" : m === "reduction" ? "Clusters view" : "Timeline view"}
           />
