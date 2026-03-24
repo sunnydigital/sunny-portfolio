@@ -10,13 +10,25 @@ import ImageGallery from "@/components/ImageGallery";
 import ImageUploader from "@/components/ImageUploader";
 import { saveToDb, hideInDb } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { renderLatex } from "@/lib/latex";
 
 function markdownToHtml(md: string): string {
-  return md
+  // Step 1: Extract image tags and replace with placeholders so LaTeX doesn't touch the URLs
+  const imagePlaceholders: string[] = [];
+  let safe = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
+    const html = `<img src="${src}" alt="${alt}" style="max-width:100%;border-radius:8px;margin:1rem 0;display:block;" />`;
+    imagePlaceholders.push(html);
+    return `%%IMG_${imagePlaceholders.length - 1}%%`;
+  });
+
+  // Step 2: Render LaTeX (safe — no image URLs present)
+  safe = renderLatex(safe);
+
+  // Step 3: Markdown formatting
+  safe = safe
     .replace(/^### (.+)$/gm, '<h3 style="font-size:1.15rem;font-weight:700;margin:1.5rem 0 0.5rem;color:var(--text)">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 style="font-size:1.35rem;font-weight:700;margin:2rem 0 0.75rem;color:var(--text)">$1</h2>')
     .replace(/^# (.+)$/gm, '<h1 style="font-size:1.75rem;font-weight:800;margin:0 0 1rem;color:var(--text)">$1</h1>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:1rem 0;display:block;" />')
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/`([^`]+)`/g, '<code style="background:var(--border);padding:0.15rem 0.4rem;border-radius:4px;font-size:0.85em">$1</code>')
@@ -25,6 +37,11 @@ function markdownToHtml(md: string): string {
     .replace(/\n\n/g, '</p><p style="margin-bottom:1rem;line-height:1.8">')
     .replace(/^/, '<p style="margin-bottom:1rem;line-height:1.8">')
     .concat("</p>");
+
+  // Step 4: Restore image tags
+  safe = safe.replace(/%%IMG_(\d+)%%/g, (_, i) => imagePlaceholders[parseInt(i)]);
+
+  return safe;
 }
 
 export default function PostDetail() {
