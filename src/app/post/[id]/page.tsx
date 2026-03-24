@@ -24,7 +24,38 @@ function markdownToHtml(md: string): string {
   // Step 2: Render LaTeX (safe — no image URLs present)
   safe = renderLatex(safe);
 
-  // Step 3: Markdown formatting
+  // Step 3: Extract tables and replace with placeholders (before paragraph wrapping)
+  const tablePlaceholders: string[] = [];
+  safe = safe.replace(/((?:\|[^\n]*\|[^\n]*\n?)+)/g, (match) => {
+    const lines = match.trim().split('\n').filter(l => l.includes('|'));
+    if (lines.length < 2) return match;
+    const sep = lines[1];
+    if (!sep.match(/^[\|\s\-:]+$/)) return match;
+
+    const headers = lines[0].split('|').slice(1, -1).map(h => h.trim());
+    const dataRows = lines.slice(2).filter(r => r.startsWith('|'));
+
+    let tbl = '<div style="overflow-x:auto;margin:1.5rem 0">';
+    tbl += '<table style="width:100%;border-collapse:collapse;font-size:0.9em">';
+    tbl += '<thead><tr>';
+    headers.forEach(h => {
+      tbl += `<th style="padding:0.5rem 1rem;border:1px solid var(--border);text-align:left;background:rgba(128,128,128,0.1);font-weight:600">${h}</th>`;
+    });
+    tbl += '</tr></thead><tbody>';
+    dataRows.forEach(row => {
+      const cells = row.split('|').slice(1, -1).map(c => c.trim());
+      tbl += '<tr>';
+      cells.forEach(cell => {
+        tbl += `<td style="padding:0.5rem 1rem;border:1px solid var(--border)">${cell}</td>`;
+      });
+      tbl += '</tr>';
+    });
+    tbl += '</tbody></table></div>';
+    tablePlaceholders.push(tbl);
+    return `%%TABLE_${tablePlaceholders.length - 1}%%`;
+  });
+
+  // Step 4: Markdown formatting
   safe = safe
     .replace(/^### (.+)$/gm, '<h3 style="font-size:1.15rem;font-weight:700;margin:1.5rem 0 0.5rem;color:var(--text)">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 style="font-size:1.35rem;font-weight:700;margin:2rem 0 0.75rem;color:var(--text)">$1</h2>')
@@ -38,7 +69,10 @@ function markdownToHtml(md: string): string {
     .replace(/^/, '<p style="margin-bottom:1rem;line-height:1.8">')
     .concat("</p>");
 
-  // Step 4: Restore image tags
+  // Step 5: Restore table placeholders
+  safe = safe.replace(/%%TABLE_(\d+)%%/g, (_, i) => tablePlaceholders[parseInt(i)]);
+
+  // Step 6: Restore image tags
   safe = safe.replace(/%%IMG_(\d+)%%/g, (_, i) => imagePlaceholders[parseInt(i)]);
 
   return safe;
