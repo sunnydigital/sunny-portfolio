@@ -292,9 +292,7 @@ export default function PostDetail() {
           <ImageUploader images={images} onChange={setImages} />
         )}
 
-        {!editing && images.length > 0 && (
-          <ImageGallery images={images} />
-        )}
+        {/* Images are embedded inline in content — no auto header gallery */}
 
         {editing ? (
           <div className="rounded-xl p-6 mt-6" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
