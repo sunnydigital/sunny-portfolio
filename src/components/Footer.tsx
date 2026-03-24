@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="flex justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://visitor-badge.laobi.icu/badge?page_id=www.sunnyson.dev"
+          src="https://visitor-badge.laobi.icu/badge?page_id=sunnyson.dev.v2"
           alt="visitor count"
           className="opacity-60 hover:opacity-100 transition-opacity"
         />
