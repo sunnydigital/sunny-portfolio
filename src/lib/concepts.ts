@@ -69,6 +69,7 @@ export async function getAllConceptsAsync(): Promise<Concept[]> {
           y: (row.y as number) || 0,
           z: (row.z as number) || 0,
           images: (row.images as string[]) || [],
+          ...(row.embedding ? { embedding: row.embedding as number[] } : {}),
         });
       }
     }
@@ -89,7 +90,7 @@ export function invalidateConceptsCache() {
 // ---- Write operations via API routes ----
 
 // Only these fields exist in the Supabase concepts table
-const CONCEPT_DB_FIELDS = ["id", "name", "short_summary", "long_summary", "date_learned", "x", "y", "z", "images", "is_user_created", "is_hidden"];
+const CONCEPT_DB_FIELDS = ["id", "name", "short_summary", "long_summary", "date_learned", "x", "y", "z", "images", "embedding", "is_user_created", "is_hidden"];
 
 export async function saveConceptToDb(concept: Partial<Concept> & { id: string; is_user_created?: boolean; is_hidden?: boolean }) {
   // Whitelist only DB-valid fields
