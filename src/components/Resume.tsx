@@ -99,13 +99,12 @@ const DEFAULT_CERTIFICATIONS: Certification[] = [
 const DEFAULT_INTERESTS = [
   "Running", "Photography", "Overwatch (Top 500)", "Smash Bros.", "Boarding",
   "Weight Training", "Calisthenics", "Travel", "Street Food", "Archery",
-  "Counter Strike", "Whistling (Taking Requests)",
+  "Counter Strike", "Whistling (Taking Requests)", "Public Speaking",
 ];
 
 const DEFAULT_LANGUAGES: Language[] = [
   { lang: "Mandarin", level: "Proficient" },
   { lang: "Spanish", level: "Elementary" },
-  { lang: "Japanese", level: "Elementary" },
 ];
 
 const STORAGE_KEY = "resume-edit";
