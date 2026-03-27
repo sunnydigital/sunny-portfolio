@@ -1340,22 +1340,24 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
         >
           {mode === "galaxy" ? "Galaxy" : mode === "reduction" ? "Clusters" : "Timeline"}
         </h2>
-        <p
-          className="text-sm mt-1"
-          style={{
-            color: "var(--text-muted)",
-            opacity: 0.7,
-            maxWidth: isMobile ? "45vw" : "280px",
-            marginLeft: "auto",
-            transition: "opacity 0.5s ease",
-          }}
-        >
-          {mode === "galaxy"
-            ? "Each star is a concept — scroll to explore"
-            : mode === "reduction"
-            ? "Concepts clustered by semantic similarity"
-            : "Concepts arranged chronologically"}
-        </p>
+        {!isMobile && (
+          <p
+            className="text-sm mt-1"
+            style={{
+              color: "var(--text-muted)",
+              opacity: 0.7,
+              maxWidth: "280px",
+              marginLeft: "auto",
+              transition: "opacity 0.5s ease",
+            }}
+          >
+            {mode === "galaxy"
+              ? "Each star is a concept — scroll to explore"
+              : mode === "reduction"
+              ? "Concepts clustered by semantic similarity"
+              : "Concepts arranged chronologically"}
+          </p>
+        )}
       </div>
       <Canvas
         camera={{ position: [0, 3, 8], fov: 60 }}
@@ -1436,7 +1438,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
                 style={{
                   display: "block",
                   width: "100%",
-                  height: "0.375rem",
+                  height: isMobile ? "0.6rem" : "0.375rem",
                   borderRadius: "9999px",
                   background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
                   transform: mode === m ? "scaleX(1.15)" : "scaleX(1)",
