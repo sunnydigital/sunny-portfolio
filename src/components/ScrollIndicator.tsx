@@ -8,6 +8,7 @@ export default function ScrollIndicator() {
   const { mode } = useScroll();
 
   if (mode !== "galaxy") return null;
+  if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) return null;
 
   return (
     <motion.div
