@@ -1036,7 +1036,7 @@ function TimelineOverlay({ concepts, mode, onLinesHidden }: { concepts: Concept[
   );
 }
 
-function Scene({ concepts, dispersionRef, onConceptClick, hasSession }: { concepts: Concept[]; dispersionRef: React.MutableRefObject<{ target: number; current: number }>; onConceptClick: (concept: Concept) => void; hasSession: boolean }) {
+function Scene({ concepts, dispersionRef, onConceptClick, hasSession, isMobile }: { concepts: Concept[]; dispersionRef: React.MutableRefObject<{ target: number; current: number }>; onConceptClick: (concept: Concept) => void; hasSession: boolean; isMobile: boolean }) {
   const [hovered, setHovered] = useState<Concept | null>(null);
   const [hoveredPos, setHoveredPos] = useState<THREE.Vector3 | null>(null);
   const { mode } = useScroll();
@@ -1086,11 +1086,12 @@ function Scene({ concepts, dispersionRef, onConceptClick, hasSession }: { concep
       <TimelineOverlay concepts={concepts} mode={mode} onLinesHidden={handleLinesHidden} />
       <Tooltip concept={hovered} position={hoveredPos} />
       <OrbitControls
-        enableZoom={false}
-        enablePan={false}
+        enableZoom={isMobile}
+        enablePan={isMobile}
         enableRotate={true}
         autoRotate={mode === "galaxy"}
         autoRotateSpeed={0.3}
+        touches={isMobile ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined}
         mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: undefined as unknown as THREE.MOUSE, RIGHT: undefined as unknown as THREE.MOUSE }}
       />
       <RightClickZoom />
@@ -1113,12 +1114,24 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dispersionRef = useRef({ target: 0, current: 0 });
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileHint, setShowMobileHint] = useState(true);
+  const [touchedOnce, setTouchedOnce] = useState(false);
 
   const handleConceptClick = useCallback((concept: Concept) => {
     router.push(`/concept/${concept.id}`);
   }, [router]);
 
   useEffect(() => setMounted(true), []);
+
+  // Detect touch/mobile device (pointer: coarse = touchscreen)
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   // Drive dispersion target based on mode
   useEffect(() => {
@@ -1144,6 +1157,22 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
     // Fallback: release after 800ms in case scrollend doesn't fire (Safari)
     setTimeout(finish, 800);
   }, []);
+
+  // Fade out the hint after first touch interaction
+  const handleFirstTouch = useCallback(() => {
+    if (!touchedOnce) {
+      setTouchedOnce(true);
+      setTimeout(() => setShowMobileHint(false), 2000);
+    }
+  }, [touchedOnce]);
+
+  // Scroll past the visualization on mobile (equivalent to desktop scroll-past)
+  const handleScrollPast = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    setPastVisualization(true);
+    snapTo(container.getBoundingClientRect().height + window.scrollY);
+  }, [setPastVisualization, snapTo]);
 
   // Snap-back: when scrolling up and viz becomes partially visible, snap to top
   useEffect(() => {
@@ -1313,12 +1342,54 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
       </div>
       <Canvas
         camera={{ position: [0, 3, 8], fov: 60 }}
-        style={{ background: "transparent" }}
+        style={{ background: "transparent", touchAction: isMobile ? "none" : "auto" }}
         gl={{ antialias: true, alpha: true }}
         onCreated={() => { if (onReady) onReady(); }}
+        onTouchStart={isMobile ? handleFirstTouch : undefined}
       >
-        <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} />
+        <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} isMobile={isMobile} />
       </Canvas>
+      {/* Mobile: drag/pinch hint — fades after first touch */}
+      {isMobile && showMobileHint && (
+        <div
+          className="absolute z-10 left-1/2 -translate-x-1/2 pointer-events-none"
+          style={{
+            bottom: "6rem",
+            color: "var(--text-muted)",
+            fontSize: "11px",
+            opacity: touchedOnce ? 0 : 0.55,
+            transition: "opacity 1.5s ease",
+            whiteSpace: "nowrap",
+            letterSpacing: "0.04em",
+          }}
+        >
+          drag to rotate · pinch to zoom
+        </div>
+      )}
+      {/* Mobile: scroll past button */}
+      {isMobile && (
+        <button
+          onClick={handleScrollPast}
+          className="absolute z-10 left-1/2 -translate-x-1/2"
+          style={{
+            bottom: "3.75rem",
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.13)",
+            borderRadius: "20px",
+            padding: "7px 18px",
+            color: "var(--text-muted)",
+            fontSize: "12px",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            cursor: "pointer",
+            letterSpacing: "0.03em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ fontSize: "10px" }}>↓</span> Explore Portfolio
+        </button>
+      )}
       {/* Mode buttons */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         {(["galaxy", "reduction", "timeline"] as const).map((m) => (
