@@ -1307,11 +1307,28 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
   return (
     <div ref={containerRef} id="galaxy-container" className="w-full h-screen relative">
       {/* Dedication quote */}
-      <div className="absolute top-20 left-6 z-10 pointer-events-none" style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontStyle: "italic", opacity: 0.6, maxWidth: "480px", lineHeight: 1.5 }}>
+      <div
+        className="absolute left-6 z-10 pointer-events-none"
+        style={{
+          top: isMobile ? "5.5rem" : "5rem",
+          color: "var(--text-muted)",
+          fontSize: "0.75rem",
+          fontStyle: "italic",
+          opacity: 0.6,
+          maxWidth: isMobile ? "55vw" : "480px",
+          lineHeight: 1.5,
+        }}
+      >
         Dedicated to the bright lights that have guided me<br />through wayward roads, tumultuous seas, and trying times
       </div>
       {/* Mode title overlay */}
-      <div className="absolute top-20 right-6 z-10 pointer-events-none text-right" style={{ transition: "opacity 0.6s ease" }}>
+      <div
+        className="absolute right-6 z-10 pointer-events-none text-right"
+        style={{
+          top: isMobile ? "5.5rem" : "5rem",
+          transition: "opacity 0.6s ease",
+        }}
+      >
         <h2
           className="text-3xl sm:text-4xl font-bold tracking-tight"
           style={{
@@ -1328,7 +1345,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
           style={{
             color: "var(--text-muted)",
             opacity: 0.7,
-            maxWidth: "280px",
+            maxWidth: isMobile ? "45vw" : "280px",
             marginLeft: "auto",
             transition: "opacity 0.5s ease",
           }}
@@ -1349,81 +1366,86 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
       >
         <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} isMobile={isMobile} />
       </Canvas>
-      {/* Mobile: drag/pinch hint — fades after first touch */}
-      {isMobile && showMobileHint && (
-        <div
-          className="absolute z-10 left-1/2 -translate-x-1/2 pointer-events-none"
-          style={{
-            bottom: "6rem",
-            color: "var(--text-muted)",
-            fontSize: "11px",
-            opacity: touchedOnce ? 0 : 0.55,
-            transition: "opacity 1.5s ease",
-            whiteSpace: "nowrap",
-            letterSpacing: "0.04em",
-          }}
-        >
-          drag to rotate · pinch to zoom
-        </div>
-      )}
-      {/* Mobile: scroll past button */}
-      {isMobile && (
-        <button
-          onPointerDown={handleScrollPast}
-          className="absolute z-10 left-1/2 -translate-x-1/2"
-          style={{
-            bottom: "3.75rem",
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.13)",
-            borderRadius: "20px",
-            padding: "7px 18px",
-            color: "var(--text-muted)",
-            fontSize: "12px",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            cursor: "pointer",
-            letterSpacing: "0.03em",
-            whiteSpace: "nowrap",
-            touchAction: "manipulation",
-          }}
-        >
-          <span style={{ fontSize: "10px" }}>↓</span> Explore Portfolio
-        </button>
-      )}
-      {/* Mode buttons */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        {(["galaxy", "reduction", "timeline"] as const).map((m) => (
-          <button
-            key={m}
-            onPointerDown={() => setMode(m)}
-            className="rounded-full transition-all duration-500 cursor-pointer"
+      {/* Bottom overlay — isolated from canvas touch events */}
+      <div
+        className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center"
+        style={{ paddingBottom: "1.5rem", gap: "0.75rem", pointerEvents: "none" }}
+      >
+        {/* Mobile: drag/pinch hint */}
+        {isMobile && showMobileHint && (
+          <div
             style={{
-              width: "2rem",
-              height: isMobile ? "2.5rem" : "0.375rem",
-              padding: isMobile ? "1rem 0.5rem" : "0",
-              background: "transparent",
-              border: "none",
+              color: "var(--text-muted)",
+              fontSize: "11px",
+              opacity: touchedOnce ? 0 : 0.55,
+              transition: "opacity 1.5s ease",
+              whiteSpace: "nowrap",
+              letterSpacing: "0.04em",
+              pointerEvents: "none",
+            }}
+          >
+            drag to rotate · pinch to zoom
+          </div>
+        )}
+        {/* Mobile: scroll past button */}
+        {isMobile && (
+          <button
+            onPointerDown={(e) => { e.stopPropagation(); handleScrollPast(); }}
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.13)",
+              borderRadius: "20px",
+              padding: "7px 18px",
+              color: "var(--text-muted)",
+              fontSize: "12px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              gap: "6px",
+              cursor: "pointer",
+              letterSpacing: "0.03em",
+              whiteSpace: "nowrap",
               touchAction: "manipulation",
+              pointerEvents: "auto",
             }}
-            aria-label={m === "galaxy" ? "Galaxy view" : m === "reduction" ? "Clusters view" : "Timeline view"}
           >
-            <span
-              style={{
-                display: "block",
-                width: "100%",
-                height: "0.375rem",
-                borderRadius: "9999px",
-                background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
-                transform: mode === m ? "scaleX(1.15)" : "scaleX(1)",
-                transition: "background 0.5s ease, transform 0.5s ease",
-              }}
-            />
+            <span style={{ fontSize: "10px" }}>↓</span> Explore Portfolio
           </button>
-        ))}
+        )}
+        {/* Mode toggle pills */}
+        <div style={{ display: "flex", gap: "0.5rem", pointerEvents: "auto" }}>
+          {(["galaxy", "reduction", "timeline"] as const).map((m) => (
+            <button
+              key={m}
+              onPointerDown={(e) => { e.stopPropagation(); setMode(m); }}
+              style={{
+                width: "2rem",
+                height: isMobile ? "2.75rem" : "0.375rem",
+                padding: isMobile ? "1.1rem 0.5rem" : "0",
+                background: "transparent",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                touchAction: "manipulation",
+                pointerEvents: "auto",
+              }}
+              aria-label={m === "galaxy" ? "Galaxy view" : m === "reduction" ? "Clusters view" : "Timeline view"}
+            >
+              <span
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "0.375rem",
+                  borderRadius: "9999px",
+                  background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
+                  transform: mode === m ? "scaleX(1.15)" : "scaleX(1)",
+                  transition: "background 0.5s ease, transform 0.5s ease",
+                }}
+              />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
