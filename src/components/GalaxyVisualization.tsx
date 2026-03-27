@@ -1420,7 +1420,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
               key={m}
               onPointerDown={(e) => { e.stopPropagation(); setMode(m); }}
               style={{
-                width: "2rem",
+                width: isMobile ? "3.5rem" : "2rem",
                 height: isMobile ? "2.75rem" : "0.375rem",
                 padding: isMobile ? "1.1rem 0.5rem" : "0",
                 background: "transparent",
