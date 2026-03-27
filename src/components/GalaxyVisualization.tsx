@@ -1396,14 +1396,31 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
           <button
             key={m}
             onClick={() => setMode(m)}
-            className="w-8 h-1.5 rounded-full transition-all duration-500 cursor-pointer"
+            className="rounded-full transition-all duration-500 cursor-pointer"
             style={{
-              background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
+              width: "2rem",
+              height: isMobile ? "2.5rem" : "0.375rem",
+              padding: isMobile ? "1rem 0.5rem" : "0",
+              background: "transparent",
               border: "none",
-              transform: mode === m ? "scaleX(1.15)" : "scaleX(1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
             aria-label={m === "galaxy" ? "Galaxy view" : m === "reduction" ? "Clusters view" : "Timeline view"}
-          />
+          >
+            <span
+              style={{
+                display: "block",
+                width: "100%",
+                height: "0.375rem",
+                borderRadius: "9999px",
+                background: mode === m ? "var(--accent-mid)" : "rgba(255,255,255,0.2)",
+                transform: mode === m ? "scaleX(1.15)" : "scaleX(1)",
+                transition: "background 0.5s ease, transform 0.5s ease",
+              }}
+            />
+          </button>
         ))}
       </div>
     </div>
