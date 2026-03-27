@@ -1369,7 +1369,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
       {/* Mobile: scroll past button */}
       {isMobile && (
         <button
-          onClick={handleScrollPast}
+          onPointerDown={handleScrollPast}
           className="absolute z-10 left-1/2 -translate-x-1/2"
           style={{
             bottom: "3.75rem",
@@ -1385,6 +1385,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
             cursor: "pointer",
             letterSpacing: "0.03em",
             whiteSpace: "nowrap",
+            touchAction: "manipulation",
           }}
         >
           <span style={{ fontSize: "10px" }}>↓</span> Explore Portfolio
@@ -1395,7 +1396,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
         {(["galaxy", "reduction", "timeline"] as const).map((m) => (
           <button
             key={m}
-            onClick={() => setMode(m)}
+            onPointerDown={() => setMode(m)}
             className="rounded-full transition-all duration-500 cursor-pointer"
             style={{
               width: "2rem",
@@ -1406,6 +1407,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              touchAction: "manipulation",
             }}
             aria-label={m === "galaxy" ? "Galaxy view" : m === "reduction" ? "Clusters view" : "Timeline view"}
           >
