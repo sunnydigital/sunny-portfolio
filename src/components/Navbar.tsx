@@ -6,27 +6,27 @@ import { useTheme } from "@/lib/theme";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useScroll } from "@/lib/scroll";
+import { useShadowbox, SectionId } from "@/lib/shadowbox";
 
-const links = [
-  { label: "About", href: "#about" },
-  { label: "Projects", href: "#projects" },
-  { label: "Papers", href: "#papers" },
-  { label: "Posts", href: "#posts" },
-  { label: "Skills", href: "#skills" },
-  { label: "Resume", href: "#resume" },
-  { label: "Contact", href: "#contact" },
+const links: { label: string; id: SectionId }[] = [
+  { label: "About", id: "about" },
+  { label: "Projects", id: "projects" },
+  { label: "Papers", id: "papers" },
+  { label: "Posts", id: "posts" },
+  { label: "Skills", id: "skills" },
+  { label: "Resume", id: "resume" },
+  { label: "Contact", id: "contact" },
 ];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const { data: session } = useSession();
-  const { setMode, setPastVisualization } = useScroll();
+  const { goToSectionId } = useShadowbox();
 
-  const handleNavClick = () => {
-    setMode("timeline");
-    setPastVisualization(true);
+  const handleNavClick = (id: SectionId) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    goToSectionId(id);
   };
 
   return (
@@ -39,9 +39,9 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           {links.map((l) => (
             <a
-              key={l.href}
-              href={l.href}
-              onClick={handleNavClick}
+              key={l.id}
+              href={`#${l.id}`}
+              onClick={handleNavClick(l.id)}
               className="text-sm transition-colors"
               style={{ color: "var(--text-muted)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent-mid)")}
@@ -97,9 +97,9 @@ export default function Navbar() {
         <div className="md:hidden backdrop-blur-md px-4 py-3 flex flex-col gap-3" style={{ background: "color-mix(in srgb, var(--bg) 95%, transparent)", borderTop: "1px solid var(--border)" }}>
           {links.map((l) => (
             <a
-              key={l.href}
-              href={l.href}
-              onClick={() => { setOpen(false); handleNavClick(); }}
+              key={l.id}
+              href={`#${l.id}`}
+              onClick={(e) => { setOpen(false); handleNavClick(l.id)(e); }}
               className="text-sm transition-colors"
               style={{ color: "var(--text-muted)" }}
             >

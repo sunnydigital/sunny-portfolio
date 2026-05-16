@@ -10,6 +10,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { Concept } from "@/types";
 import { useScroll } from "@/lib/scroll";
+import { useShadowbox } from "@/lib/shadowbox";
 import { useRouter } from "next/navigation";
 import { computeClusterPositions } from "@/lib/embeddings";
 import { renderLatex } from "@/lib/latex";
@@ -1036,6 +1037,14 @@ function TimelineOverlay({ concepts, mode, onLinesHidden }: { concepts: Concept[
   );
 }
 
+// Camera zoom-out rig: previously dollied the camera back during transition.
+// Now disabled because the outer DOM container scales+translates the entire
+// canvas to the upper-right, which provides the shrink effect more cleanly.
+// Kept as a no-op so the rest of the Scene tree is untouched.
+function CameraZoomRig() {
+  return null;
+}
+
 function Scene({ concepts, dispersionRef, onConceptClick, hasSession, isMobile }: { concepts: Concept[]; dispersionRef: React.MutableRefObject<{ target: number; current: number }>; onConceptClick: (concept: Concept) => void; hasSession: boolean; isMobile: boolean }) {
   const [hovered, setHovered] = useState<Concept | null>(null);
   const [hoveredPos, setHoveredPos] = useState<THREE.Vector3 | null>(null);
@@ -1077,6 +1086,7 @@ function Scene({ concepts, dispersionRef, onConceptClick, hasSession, isMobile }
   return (
     <>
       <ambientLight intensity={0.2} />
+      <CameraZoomRig />
       <group visible={dispersionProgress < 0.99}>
         <group>
           <GalaxyStars dispersionProgress={dispersionProgress} />
@@ -1109,6 +1119,7 @@ interface Props {
 export default function GalaxyVisualization({ concepts, onReady }: Props) {
   const { data: sessionData } = useSession();
   const { mode, nextMode, prevMode, setMode, pastVisualization, setPastVisualization } = useScroll();
+  const { transition: sbTransition, phase: sbPhase } = useShadowbox();
   const [mounted, setMounted] = useState(false);
   const lastWheelTime = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1304,9 +1315,41 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
     );
   }
 
+  // During shadowbox transition: scale the entire galaxy down to the size of
+  // the paper galaxy in the upper-right, then fade out so the static paper
+  // galaxy appears to take its place seamlessly.
+  // sbTransition: 0 = full galaxy view, 1 = fully in upper-right
+  // Paper galaxy sits at viewport ~right 18%, top 16% (i.e. centered around
+  // (82%, 16%)). Container origin is its own center (50%, 50%), so we
+  // translate toward (82%, 16%) ≈ +32vw, -34vh, and scale to ~0.22.
+  const t = sbPhase === "galaxy" ? 0 : sbTransition;
+  const targetScale = 1 - t * 0.78;            // 1 → 0.22
+  const translateXvw = t * 32;
+  const translateYvh = -t * 34;
+  // Stay visible while shrinking; only start fading after it has reached the
+  // upper-right (transition past ~0.75), then go to 0 by transition=1.
+  const containerOpacity =
+    sbPhase === "galaxy"
+      ? 1
+      : t < 0.75
+      ? 1
+      : Math.max(0, 1 - (t - 0.75) / 0.25);
+
   return (
-    <div ref={containerRef} id="galaxy-container" className="w-full h-screen relative">
-      {/* Dedication quote */}
+    <div
+      ref={containerRef}
+      id="galaxy-container"
+      className="w-full h-screen relative"
+      style={{
+        opacity: containerOpacity,
+        transformOrigin: "50% 50%",
+        transform: `translate(${translateXvw}vw, ${translateYvh}vh) scale(${targetScale})`,
+        // Smooth interpolation in both directions, so scrolling back up from
+        // section to galaxy animates the shrink reversal rather than snapping.
+        transition: "opacity 0.4s ease, transform 0.8s ease",
+      }}
+    >
+      {/* Dedication quote — hidden once user enters the shadowbox */}
       <div
         className="absolute left-6 z-10 pointer-events-none"
         style={{
@@ -1314,19 +1357,21 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
           color: "var(--text-muted)",
           fontSize: "0.75rem",
           fontStyle: "italic",
-          opacity: 0.6,
+          opacity: pastVisualization ? 0 : 0.6,
           maxWidth: isMobile ? "55vw" : "480px",
           lineHeight: 1.5,
+          transition: "opacity 0.5s ease",
         }}
       >
         Dedicated to the bright lights that have guided me<br />through wayward roads, tumultuous seas, and trying times
       </div>
-      {/* Mode title overlay */}
+      {/* Mode title overlay — hidden once user enters the shadowbox */}
       <div
         className="absolute right-6 z-10 pointer-events-none text-right"
         style={{
           top: isMobile ? "5.5rem" : "5rem",
-          transition: "opacity 0.6s ease",
+          opacity: pastVisualization ? 0 : 1,
+          transition: "opacity 0.5s ease",
         }}
       >
         <h2
@@ -1368,10 +1413,16 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
       >
         <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} isMobile={isMobile} />
       </Canvas>
-      {/* Bottom overlay — isolated from canvas touch events */}
+      {/* Bottom overlay — isolated from canvas touch events; hidden in shadowbox */}
       <div
         className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center"
-        style={{ paddingBottom: "1.5rem", gap: "0.75rem", pointerEvents: "none" }}
+        style={{
+          paddingBottom: "1.5rem",
+          gap: "0.75rem",
+          pointerEvents: "none",
+          opacity: pastVisualization ? 0 : 1,
+          transition: "opacity 0.5s ease",
+        }}
       >
         {/* Mobile: drag/pinch hint */}
         {isMobile && showMobileHint && (

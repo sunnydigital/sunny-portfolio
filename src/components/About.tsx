@@ -27,7 +27,7 @@ function highlightText(text: string) {
   });
 }
 
-export default function About() {
+export default function About({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const { data: session } = useSession();
   const [editing, setEditing] = useState(false);
   const [intro, setIntro] = useState(DEFAULT_INTRO);
@@ -74,38 +74,40 @@ export default function About() {
         transition={{ duration: 0.7 }}
         viewport={{ once: true }}
       >
-        <h2 className="text-3xl font-bold mb-8" style={{ color: "var(--accent)" }}>
-          <span className="flex items-center gap-3">
-            About Me
-            {session && !editing && (
-              <button
-                onClick={startEditing}
-                className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
-                style={{ color: "var(--accent-mid)", border: "1px solid var(--border)" }}
-              >
-                <Edit3 className="w-3.5 h-3.5" /> Edit
-              </button>
-            )}
-            {editing && (
-              <span className="flex gap-2">
+        {!hideHeader && (
+          <h2 className="text-3xl font-bold mb-8" style={{ color: "var(--accent)" }}>
+            <span className="flex items-center gap-3">
+              About Me
+              {session && !editing && (
                 <button
-                  onClick={handleSave}
+                  onClick={startEditing}
                   className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
-                  style={{ background: "var(--accent)", color: "#fff" }}
+                  style={{ color: "var(--accent-mid)", border: "1px solid var(--border)" }}
                 >
-                  <Save className="w-3.5 h-3.5" /> Save
+                  <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
-                <button
-                  onClick={handleCancel}
-                  className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
-                  style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}
-                >
-                  <X className="w-3.5 h-3.5" /> Cancel
-                </button>
-              </span>
-            )}
-          </span>
-        </h2>
+              )}
+              {editing && (
+                <span className="flex gap-2">
+                  <button
+                    onClick={handleSave}
+                    className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
+                    style={{ background: "var(--accent)", color: "#fff" }}
+                  >
+                    <Save className="w-3.5 h-3.5" /> Save
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 cursor-pointer transition-colors"
+                    style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}
+                  >
+                    <X className="w-3.5 h-3.5" /> Cancel
+                  </button>
+                </span>
+              )}
+            </span>
+          </h2>
+        )}
         <div className="flex flex-col md:flex-row gap-8 items-start">
           <div className="w-40 h-40 rounded-2xl overflow-hidden flex-shrink-0" style={{ border: "1px solid var(--border-strong)" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -153,13 +155,40 @@ export default function About() {
               </>
             ) : (
               <>
-                <p className="text-lg leading-relaxed" style={{ color: "var(--text)" }}>
+                {/* Playful: each paragraph leans the opposite direction of
+                    the previous one, like handwritten notes scattered together. */}
+                <p
+                  className="text-lg leading-relaxed"
+                  style={{
+                    color: "inherit",
+                    transform: "rotate(-1.5deg)",
+                    transformOrigin: "left center",
+                  }}
+                >
                   {highlightText(intro)}
                 </p>
-                <p className="leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="leading-relaxed italic"
+                  style={{
+                    color: "inherit",
+                    opacity: 0.85,
+                    transform: "rotate(1.2deg)",
+                    transformOrigin: "right center",
+                    marginLeft: "1.5rem",
+                  }}
+                >
                   {highlightText(body1)}
                 </p>
-                <p className="leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="leading-relaxed"
+                  style={{
+                    color: "inherit",
+                    opacity: 0.85,
+                    transform: "rotate(-1deg)",
+                    transformOrigin: "left center",
+                    marginRight: "1.5rem",
+                  }}
+                >
                   {highlightText(body2)}
                 </p>
               </>

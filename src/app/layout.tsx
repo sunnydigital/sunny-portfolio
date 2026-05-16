@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
+import { ShadowboxProvider } from "@/lib/shadowbox";
 import { ScrollProvider } from "@/lib/scroll";
 import SessionWrapper from "@/components/SessionWrapper";
 
@@ -32,12 +33,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark scroll-smooth">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        />
+      </head>
       <body className="antialiased" style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-body)" }}>
         <SessionWrapper>
           <ThemeProvider>
-            <ScrollProvider>
-              {children}
-            </ScrollProvider>
+            <ShadowboxProvider>
+              <ScrollProvider>
+                {children}
+              </ScrollProvider>
+            </ShadowboxProvider>
           </ThemeProvider>
         </SessionWrapper>
       </body>
