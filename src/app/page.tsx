@@ -130,7 +130,7 @@ function DesktopHome() {
         <CloudLayer
           items={[<About key="about" hideHeader />]}
           slots={1}
-          baseDurationS={160}
+          baseDurationS={85}
           decorative={3}
           widthVw={70}
           topRange={[36, 36]}
@@ -147,7 +147,7 @@ function DesktopHome() {
           // Cap content clouds at 6 max; never more slots than items so empty
           // clouds don't appear when there are few projects.
           slots={Math.min(6, Math.max(1, projects.length))}
-          baseDurationS={85}
+          baseDurationS={45}
           decorative={4}
           widthVw={36}
           topRange={[48, 60]}
@@ -162,7 +162,7 @@ function DesktopHome() {
             <PaperCloudCard key={p.id || p.title} publication={p} />
           ))}
           slots={Math.min(6, Math.max(1, publications.length))}
-          baseDurationS={85}
+          baseDurationS={45}
           decorative={4}
           widthVw={36}
           topRange={[48, 60]}
@@ -177,7 +177,7 @@ function DesktopHome() {
             <PostCloudCard key={p.id || p.title} post={p} />
           ))}
           slots={Math.min(6, Math.max(1, posts.length))}
-          baseDurationS={85}
+          baseDurationS={45}
           decorative={4}
           widthVw={36}
           topRange={[48, 60]}
@@ -188,12 +188,12 @@ function DesktopHome() {
       <>
         <TitleCloud title="Skills" subtitle="click a skill to see where I've used it" />
         <SkillsHillEmbed skills={skills} projects={projects} />
-        <CloudLayer items={[]} slots={0} baseDurationS={120} decorative={5} />
+        <CloudLayer items={[]} slots={0} baseDurationS={60} decorative={5} />
       </>
     ),
     resume: (
       <>
-        <TitleCloud title="Resume" subtitle="swipe or use the arrows to turn the page" />
+        <TitleCloud title="Resume" />
         <ResumeJournal />
         <CloudLayer items={[]} slots={0} baseDurationS={120} decorative={4} />
       </>

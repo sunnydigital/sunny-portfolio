@@ -48,37 +48,12 @@ function FloatingCloud({
 }: FloatingCloudProps) {
   const animNameRef = useRef<string>(`cloud-drift-${animSeq++}`);
   const animName = animNameRef.current;
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  // mode: "css" — CSS animation drives motion. "js" — JS rAF drives motion
-  // (used after any user interaction).
-  const [mode, setMode] = useState<"css" | "js">("css");
-  // For CSS mode, hover paused the animation.
-  const [cssPaused, setCssPaused] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [iteration, setIteration] = useState(0);
-  // JS-mode position (vw) and velocity (vw/sec).
-  const xVwRef = useRef(0);
-  const velocityRef = useRef(0); // vw/s — signed, used for flinging
-  // Drag tracking
-  const dragStartRef = useRef<{
-    x: number;
-    t: number;
-    cloudXVw: number;
-    moved: boolean;
-  } | null>(null);
-  // Velocity samples during drag: timestamps + clientX pairs
-  const velSamplesRef = useRef<{ t: number; x: number }[]>([]);
-  // jsPhase: "drift" | "drag" | "fling" — only meaningful when mode === "js"
-  const jsPhaseRef = useRef<"drift" | "drag" | "fling">("drift");
-  const hoverRef = useRef(false);
-  const [, forceRender] = useState(0);
-  const rerender = () => forceRender((n) => n + 1);
 
   // Trajectory bounds — out of viewport on each side.
   const startVw = dir === 1 ? -widthVw : 100 + widthVw;
   const endVw = dir === 1 ? 100 + widthVw : -widthVw;
-  const exitedLeft = (x: number) => x < -widthVw - 5;
-  const exitedRight = (x: number) => x > 100 + widthVw + 5;
-  const exited = (x: number) => exitedLeft(x) || exitedRight(x);
 
   // Generate per-cloud keyframes covering drift + fade in/out. Using a unique
   // CSS animation name per cloud avoids interference with concurrent clouds.
@@ -91,179 +66,34 @@ function FloatingCloud({
     }
   `;
 
-  // -----------------------------------------------------------------
-  // JS-mode physics loop. Runs as long as mode === "js". Each frame:
-  //   - drift: cloud continues at base velocity (signed) until exit
-  //   - drag:  position is set by pointer; no rAF-driven motion
-  //   - fling: cloud moves at velocityRef.current, capped & lightly damped,
-  //            paused when hoverRef true. Ends when cloud exits viewport.
-  useEffect(() => {
-    if (mode !== "js") return;
-    let last = performance.now();
-    let frame = 0;
-    const driftSpeed = (endVw - startVw) / durationS; // signed vw/s
-    const tick = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      const phase = jsPhaseRef.current;
-      if (phase === "drift") {
-        if (!hoverRef.current) xVwRef.current += driftSpeed * dt;
-      } else if (phase === "fling") {
-        if (!hoverRef.current) {
-          xVwRef.current += velocityRef.current * dt;
-          // gentle linear damping so a hard fling slows over distance
-          const damp = 0.4 * dt;
-          velocityRef.current *= Math.max(0, 1 - damp);
-        }
-      }
-      // drag has no rAF motion — position is set in onPointerMove
-      if (wrapperRef.current) {
-        wrapperRef.current.style.transform = `translateX(${xVwRef.current}vw)`;
-      }
-      if (phase !== "drag" && exited(xVwRef.current)) {
-        const side = exitedRight(xVwRef.current) ? "right" : "left";
-        onCycleDone?.(side);
-        return; // stop the rAF loop; component will be remounted by parent
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
-
-  // -----------------------------------------------------------------
-  // Pointer handlers. Click-vs-drag threshold of 6px so a small wiggle still
-  // triggers the child's onClick navigation. Once threshold is exceeded the
-  // cloud transitions to JS mode permanently for its lifetime.
-  const DRAG_THRESHOLD_PX = 6;
-
-  const captureCurrentXVw = () => {
-    // Compute the cloud's current visible X position from getBoundingClientRect
-    // and stash it as the JS-mode starting position. Converts px → vw.
-    const el = wrapperRef.current;
-    if (!el) return 0;
-    const rect = el.getBoundingClientRect();
-    return (rect.left / window.innerWidth) * 100;
-  };
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== undefined && e.button !== 0) return;
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    const cloudXVw = mode === "js" ? xVwRef.current : captureCurrentXVw();
-    dragStartRef.current = {
-      x: e.clientX,
-      t: performance.now(),
-      cloudXVw,
-      moved: false,
-    };
-    velSamplesRef.current = [{ t: performance.now(), x: e.clientX }];
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    const start = dragStartRef.current;
-    if (!start) return;
-    const dxPx = e.clientX - start.x;
-    if (!start.moved && Math.abs(dxPx) < DRAG_THRESHOLD_PX) return;
-    if (!start.moved) {
-      // Threshold crossed — enter JS mode + drag phase.
-      start.moved = true;
-      jsPhaseRef.current = "drag";
-      if (mode !== "js") {
-        // Snapshot current visible position before switching to JS-driven motion.
-        xVwRef.current = start.cloudXVw;
-        setMode("js");
-      }
-    }
-    // X-axis only: dy ignored.
-    const dxVw = (dxPx / window.innerWidth) * 100;
-    xVwRef.current = start.cloudXVw + dxVw;
-    velSamplesRef.current.push({ t: performance.now(), x: e.clientX });
-    // Keep only the last ~120ms of samples for velocity estimation
-    const cutoff = performance.now() - 120;
-    velSamplesRef.current = velSamplesRef.current.filter((s) => s.t >= cutoff);
-    if (wrapperRef.current) {
-      wrapperRef.current.style.transform = `translateX(${xVwRef.current}vw)`;
-    }
-    rerender(); // ensure mode change picks up
-  };
-
-  const onPointerUp = (e: React.PointerEvent) => {
-    const start = dragStartRef.current;
-    dragStartRef.current = null;
-    (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
-    if (!start || !start.moved) {
-      // Treat as a click — do nothing here; the inner content's onClick will
-      // bubble naturally (we did not preventDefault).
-      return;
-    }
-    // Compute release velocity from the last ~100ms of samples.
-    const samples = velSamplesRef.current;
-    let vxPxPerS = 0;
-    if (samples.length >= 2) {
-      const first = samples[0];
-      const last = samples[samples.length - 1];
-      const dt = (last.t - first.t) / 1000;
-      if (dt > 0.001) vxPxPerS = (last.x - first.x) / dt;
-    }
-    const vxVwPerS = (vxPxPerS / window.innerWidth) * 100;
-    // Clamp to a reasonable max so a violent fling doesn't teleport off-screen.
-    velocityRef.current = Math.max(-300, Math.min(300, vxVwPerS));
-    jsPhaseRef.current = "fling";
-  };
-
-  const onPointerCancel = onPointerUp;
-  const onPointerEnter = () => {
-    hoverRef.current = true;
-    if (mode === "css") setCssPaused(true);
-    rerender();
-  };
-  const onPointerLeave = () => {
-    hoverRef.current = false;
-    if (mode === "css") setCssPaused(false);
-    rerender();
-  };
-
-  // CSS animation only used while mode === "css".
-  const cssAnimation = mode === "css"
-    ? {
-        animation: `${animName} ${durationS}s linear infinite`,
-        animationDelay:
-          iteration === 0 && startPhase > 0 ? `-${durationS * startPhase}s` : "0s",
-        animationPlayState: cssPaused ? "paused" : "running",
-      }
-    : {
-        animation: "none",
-        // Initial transform stays applied during js mode (rAF loop writes
-        // directly to wrapperRef.current.style.transform)
-      };
+  // Hover-to-pause: pointer events on the cloud wrapper toggle the CSS
+  // animation play state. Children remain freely clickable because the wrapper
+  // doesn't intercept clicks (no setPointerCapture, no preventDefault).
+  const onPointerEnter = children ? () => setPaused(true) : undefined;
+  const onPointerLeave = children ? () => setPaused(false) : undefined;
 
   return (
     <>
       <style>{keyframes}</style>
       <div
-        ref={wrapperRef}
         className="absolute"
         style={{
           top: `${topVh}vh`,
           left: 0,
           width: `${widthVw}vw`,
-          // Both content clouds and decorative drifters are interactive so the
-          // user can drag any cloud (whether or not it has text content).
-          pointerEvents: "auto",
-          ...cssAnimation,
+          // Only content clouds (those with children) accept pointer events
+          // so decorative drifters never intercept clicks aimed at things
+          // behind them.
+          pointerEvents: children ? "auto" : "none",
+          animation: `${animName} ${durationS}s linear infinite`,
+          animationDelay:
+            iteration === 0 && startPhase > 0 ? `-${durationS * startPhase}s` : "0s",
+          animationPlayState: paused ? "paused" : "running",
           willChange: "transform, opacity",
-          cursor: jsPhaseRef.current === "drag" ? "grabbing" : "grab",
-          touchAction: "none",
         }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
         onAnimationIteration={() => {
-          // Only fires while CSS animation is active.
           setIteration((n) => n + 1);
           onCycleDone?.("natural");
         }}
@@ -276,7 +106,10 @@ function FloatingCloud({
           className="block w-full select-none"
           style={{
             filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.25))",
-            pointerEvents: "auto",
+            // Inherit pointer-events from wrapper so decorative drifters
+            // (children-less, pointer-events: none on wrapper) never block
+            // clicks behind them.
+            pointerEvents: children ? "auto" : "none",
           }}
         />
         {children && (() => {
@@ -465,7 +298,7 @@ function DecorativeCloudSlot({
   const topVh = 8 + ((slotIndex + cycleKey * 7) % 9) * 4; // 8..40vh roughly
   const defaultDir: 1 | -1 = (slotIndex + cycleKey) % 2 === 0 ? 1 : -1;
   const dir: 1 | -1 = nextDirOverride ?? defaultDir;
-  const duration = 55 + ((slotIndex + cycleKey) % 6) * 6; // 55..85s
+  const duration = 28 + ((slotIndex + cycleKey) % 6) * 4; // 28..48s
   void slotCount;
 
   return (
@@ -511,7 +344,7 @@ export function TitleCloud({ title, subtitle }: { title: string; subtitle?: stri
         src="/shadowbox/cloud-4.webp"
         widthVw={13}
         topVh={42}
-        durationS={75}
+        durationS={40}
         dir={dir}
         startPhase={cycleKey === 0 ? 0.25 : 0}
         onCycleDone={onCycleDone}

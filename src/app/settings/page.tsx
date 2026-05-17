@@ -282,7 +282,29 @@ export default function SettingsPage() {
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
 
-        <h1 className="text-3xl font-bold mb-8" style={{ color: "var(--text)" }}>Settings</h1>
+        <h1 className="text-3xl font-bold mb-6" style={{ color: "var(--text)" }}>Settings</h1>
+
+        {/* Quick link to the content editor — a stacked view of every section
+            with its own edit affordances, isolated from the public shadowbox. */}
+        <button
+          onClick={() => router.push("/settings/edit")}
+          className="w-full mb-8 p-5 rounded-xl text-left flex items-center justify-between cursor-pointer transition-colors"
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            color: "var(--text)",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+        >
+          <span className="flex flex-col gap-1">
+            <span className="text-base font-semibold">Edit site content</span>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              About, Projects, Papers, Posts, Skills, Resume — all in one stacked editable view.
+            </span>
+          </span>
+          <span style={{ color: "var(--accent-mid)" }}>→</span>
+        </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column: Auth, Summary Length, Add Concept */}
