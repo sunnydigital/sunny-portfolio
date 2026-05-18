@@ -209,7 +209,7 @@ export default function ResumeJournal() {
             0 1px 0 rgba(60,40,10,0.35),
             0 0 8px rgba(255,215,120,0.18);
           filter: drop-shadow(0 1px 1px rgba(0,0,0,0.55));
-          animation: cover-glitter 10s linear infinite;
+          animation: cover-glitter 5s linear infinite;
         }
         .resume-journal .cover-plate .title {
           font-size: 1.45rem;

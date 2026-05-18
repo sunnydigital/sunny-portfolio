@@ -59,7 +59,7 @@ export default function About({ hideHeader = false }: { hideHeader?: boolean } =
     setBody1(editBody1);
     setBody2(editBody2);
     setEditing(false);
-    saveToDb("about", { id: "main", intro: editIntro, body1: editBody1, body2: editBody2 }).catch(() => {});
+    saveToDb("about", { id: "main", intro: editIntro, body1: editBody1, body2: editBody2 }).catch(() => { });
   };
 
   const handleCancel = () => {
@@ -158,10 +158,10 @@ export default function About({ hideHeader = false }: { hideHeader?: boolean } =
                 <p className="text-lg leading-relaxed" style={{ color: "inherit" }}>
                   {highlightText(intro)}
                 </p>
-                <p className="text-lg leading-relaxed italic" style={{ color: "inherit", opacity: 0.85 }}>
+                <p className="leading-relaxed italic" style={{ color: "inherit", opacity: 0.85 }}>
                   {highlightText(body1)}
                 </p>
-                <p className="text-lg leading-relaxed" style={{ color: "inherit", opacity: 0.85 }}>
+                <p className="leading-relaxed" style={{ color: "inherit", opacity: 0.85 }}>
                   {highlightText(body2)}
                 </p>
               </>

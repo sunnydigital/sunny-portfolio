@@ -119,11 +119,11 @@ const HILL_CLUSTER_LAYERS: ClusterLayer[] = [
     start: 0.6,
     end: 0.85,
     widthVw: 70 / 16,   // 7.8125vw
-    bottomVw: 260 / 16,  // 27vw
+    bottomVw: 270 / 16,  // 27vw
     // Original telescope left edge was at 56% of stage width = 56vw from
     // viewport left = +6vw from viewport center.
     leftFromCenterVw: 53 - 50, // +6vw
-    rotateDeg: 2,
+    rotateDeg: 0,
     dropShadow: "drop-shadow(0 3px 5px rgba(0,0,0,0.55))",
   },
 ];
@@ -344,8 +344,8 @@ export default function Shadowbox({ sectionContent }: ShadowboxProps) {
     phase === "section"
       ? 1
       : phase === "transition" && transitionDirRef.current === "out"
-      ? 1
-      : 0;
+        ? 1
+        : 0;
   // Layers stay mounted across all non-galaxy-only phases so the CSS opacity
   // fade on the wrapper has something to fade.
   const showLayers = phase === "section" || phase === "transition" || phase === "pre-exit";
@@ -452,7 +452,7 @@ export default function Shadowbox({ sectionContent }: ShadowboxProps) {
                     pointerEvents: "none",
                     userSelect: "none",
                     transformOrigin: "50% 50%",
-                    animation: "shadowbox-galaxy-spin 90s linear infinite",
+                    animation: "shadowbox-galaxy-spin 60s linear infinite",
                   }}
                   draggable={false}
                 />
