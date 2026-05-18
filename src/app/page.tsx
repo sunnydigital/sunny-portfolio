@@ -101,21 +101,21 @@ function DesktopHome() {
 
   const handleConceptAdded = useCallback(() => {
     invalidateConceptsCache();
-    getAllConceptsAsync().then(setConcepts).catch(() => {});
+    getAllConceptsAsync().then(setConcepts).catch(() => { });
   }, []);
 
   const handleDeletePost = useCallback((id: string) => {
-    hideInDb("posts", id).catch(() => {});
+    hideInDb("posts", id).catch(() => { });
     setPosts((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const handleDeletePublication = useCallback((id: string) => {
-    hideInDb("publications", id).catch(() => {});
+    hideInDb("publications", id).catch(() => { });
     setPublications((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const handleDeleteProject = useCallback((id: string) => {
-    hideInDb("projects", id).catch(() => {});
+    hideInDb("projects", id).catch(() => { });
     setProjects((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
@@ -128,11 +128,26 @@ function DesktopHome() {
       <>
         <TitleCloud title="About Me" />
         <CloudLayer
-          items={[<About key="about" hideHeader />]}
+          items={[{
+            key: "about",
+            node: (
+              // Strip About's full-page section padding (`py-24 px-4`) when
+              // rendering inside a cloud — the cloud silhouette already
+              // provides the visual frame.
+              <div className="[&_section]:!py-0 [&_section]:!px-0 [&_section]:!max-w-none">
+                <About key="about" hideHeader />
+              </div>
+            ),
+            // About uses Tailwind absolute units (text-lg, w-40 photo) so it
+            // can't track the cloud silhouette via cqw. `fit` measures the
+            // safe inner region and uniformly scales the content to fit
+            // regardless of which cloud silhouette gets selected.
+            fit: true,
+          }]}
           slots={1}
           baseDurationS={85}
           decorative={3}
-          widthVw={70}
+          widthVw={72}
           topRange={[36, 36]}
         />
       </>
@@ -141,15 +156,15 @@ function DesktopHome() {
       <>
         <TitleCloud title="Projects" />
         <CloudLayer
-          items={projects.map((p) => (
-            <ProjectCloudCard key={p.id || p.title} project={p} />
-          ))}
+          items={projects.map((p) => ({
+            key: p.id || p.title,
+            node: <ProjectCloudCard key={p.id || p.title} project={p} />,
+          }))}
           // Cap content clouds at 6 max; never more slots than items so empty
           // clouds don't appear when there are few projects.
           slots={Math.min(6, Math.max(1, projects.length))}
           baseDurationS={45}
           decorative={4}
-          widthVw={36}
           topRange={[48, 60]}
         />
       </>
@@ -158,13 +173,13 @@ function DesktopHome() {
       <>
         <TitleCloud title="Publications" />
         <CloudLayer
-          items={publications.map((p) => (
-            <PaperCloudCard key={p.id || p.title} publication={p} />
-          ))}
+          items={publications.map((p) => ({
+            key: p.id || p.title,
+            node: <PaperCloudCard key={p.id || p.title} publication={p} />,
+          }))}
           slots={Math.min(6, Math.max(1, publications.length))}
           baseDurationS={45}
           decorative={4}
-          widthVw={36}
           topRange={[48, 60]}
         />
       </>
@@ -173,13 +188,13 @@ function DesktopHome() {
       <>
         <TitleCloud title="Posts" />
         <CloudLayer
-          items={posts.map((p) => (
-            <PostCloudCard key={p.id || p.title} post={p} />
-          ))}
+          items={posts.map((p) => ({
+            key: p.id || p.title,
+            node: <PostCloudCard key={p.id || p.title} post={p} />,
+          }))}
           slots={Math.min(6, Math.max(1, posts.length))}
           baseDurationS={45}
           decorative={4}
-          widthVw={36}
           topRange={[48, 60]}
         />
       </>

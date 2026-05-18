@@ -58,14 +58,18 @@ export default function ContactCard() {
     <div
       className="pointer-events-auto text-left"
       style={{
-        position: "fixed",
-        top: "30vh",
+        // Was `position: fixed` (viewport-anchored). Inside the Shadowbox
+        // Stage (a CSS-transform-scaled subtree), switching to absolute keeps
+        // the postcard anchored to the design canvas so it scales-to-fit with
+        // the rest of the scene rather than escaping to viewport pixels.
+        position: "absolute",
+        top: "30%",
         left: "50%",
         transform: `translate(calc(-50% + ${panelOffset.x}px), ${panelOffset.y}px)`,
-        width: "min(64vw, 720px)",
+        width: 720,
         // Postcard aspect ≈ 7:5 — slightly wider than tall, like a real card.
         aspectRatio: "7 / 5",
-        maxHeight: "62vh",
+        maxHeight: "62%",
         background: PAPER_FILL,
         // Subtle paper grain + warm vignette + tilted shadow give the
         // postcard a hand-held feel without overwhelming the form fields.

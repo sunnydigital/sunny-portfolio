@@ -1,9 +1,10 @@
 "use client";
 
-// Skills embedded onto the front hill. Single-column stacked list of all
-// categories (Programming Languages → Other), with paper-oval chips for each
-// skill. Selecting a skill opens a horizontal carousel of matching projects
-// anchored at the top of the viewport (swipe / arrow buttons / infinite loop).
+// Skills section: each category is rendered as its own hand-painted wooden
+// sign that can be dragged independently around the hill. The three sign
+// silhouettes (post + plank, walnut arrow, cedar stake) are reused in
+// rotation across all category signs. Selecting a skill chip on a sign opens
+// the matching-projects carousel anchored at the top of the viewport.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -12,8 +13,8 @@ import { ChevronLeft, ChevronRight, ExternalLink, Github, Lightbulb, X } from "l
 import { Skill, Project } from "@/types";
 import { saveToDb } from "@/lib/db";
 
-// Single ordered list of categories rendered top → bottom inside one
-// draggable stack. Also used by the unmatched-tag editor's Category dropdown.
+// Single ordered list of categories. Also used by the unmatched-tag editor's
+// Category dropdown.
 const ALL_CATEGORIES = [
   "Programming Languages",
   "AI / ML Frameworks",
@@ -23,6 +24,49 @@ const ALL_CATEGORIES = [
   "Specializations",
   "Other",
 ];
+
+// Three reusable torn-paper-sheet silhouettes generated via nano-banana-2
+// and chroma-keyed. Each paper has a different shape + rotation feel, with
+// per-variant inset percentages that describe the usable inner writable area
+// — i.e. how far the chips should stay back from the torn deckled edges so
+// the lettering doesn't fall off the paper.
+type PaperVariant = {
+  src: string;
+  // Inner writable inset as % of the silhouette's bounding box. Larger insets
+  // pull chips farther in from the torn edge.
+  insetTopPct: number;
+  insetBottomPct: number;
+  insetLeftPct: number;
+  insetRightPct: number;
+  // Ink colour used for the hand-painted category title on this paper variant.
+  inkColor: string;
+  // A small CSS rotation applied to the whole card so each paper sits at a
+  // slightly different angle, like loose pages dropped on a desk.
+  rotateDeg: number;
+};
+const PAPER_VARIANTS: PaperVariant[] = [
+  // paper-1: wide landscape sepia sheet, lots of breathing room inside.
+  { src: "/shadowbox/paper-1.webp", insetTopPct: 12, insetBottomPct: 12, insetLeftPct: 8, insetRightPct: 8, inkColor: "#3a2a1e", rotateDeg: -1.5 },
+  // paper-2: square-ish parchment, slightly larger insets because the torn
+  // edges are more irregular.
+  { src: "/shadowbox/paper-2.webp", insetTopPct: 14, insetBottomPct: 14, insetLeftPct: 12, insetRightPct: 12, inkColor: "#4a3320", rotateDeg: 2 },
+  // paper-3: notebook-torn sheet with a curled corner — keep right inset
+  // bigger so chips don't run under the curl.
+  { src: "/shadowbox/paper-3.webp", insetTopPct: 12, insetBottomPct: 14, insetLeftPct: 14, insetRightPct: 18, inkColor: "#3a2a1e", rotateDeg: -2.5 },
+];
+
+// Default position of each paper within the skills band. Tuned so the seven
+// category sheets fan out across the hillside like scattered pages.
+// Users can drag each one freely afterwards.
+const PAPER_DEFAULT_POSITIONS: Record<string, { x: number; y: number; variant: number; widthPx: number; pinColor: string }> = {
+  "Programming Languages": { x: -940, y: 599, variant: 0, widthPx: 480, pinColor: "#c83737" }, // red
+  "AI / ML Frameworks": { x: 201, y: 288, variant: 2, widthPx: 480, pinColor: "#e0a020" }, // amber
+  "Data & Compute": { x: 98, y: 540, variant: 1, widthPx: 400, pinColor: "#3a8a3a" }, // green
+  "Cloud & Infrastructure": { x: -734, y: 396, variant: 1, widthPx: 450, pinColor: "#2b6cb0" }, // blue
+  "MLOps & Tools": { x: -282, y: 303, variant: 0, widthPx: 450, pinColor: "#7a3aa2" }, // purple
+  "Specializations": { x: -401, y: 589, variant: 2, widthPx: 575, pinColor: "#d05a8a" }, // pink
+  "Other": { x: 630, y: 361, variant: 1, widthPx: 360, pinColor: "#3a3a3a" }, // graphite
+};
 
 function exactMatch(a: string, b: string): boolean {
   return a.toLowerCase().trim() === b.toLowerCase().trim();
@@ -96,7 +140,13 @@ export default function SkillsHillEmbed({ skills, projects }: { skills: Skill[];
   // the panel header and drag it anywhere on the screen. Persisted only for
   // the lifetime of the selection — reset on skill change so a new selection
   // recentres the panel.
-  const [panelOffset, setPanelOffset] = useState({ x: 504, y: 211 });
+  const [panelOffset, setPanelOffset] = useState({ x: 694, y: 562 });
+
+  // Live paper offsets — populated as the signed-in dev drags papers around.
+  // Used by the dev preview overlay below to show current vs default positions
+  // and emit an updated PAPER_DEFAULT_POSITIONS block ready to paste back in.
+  const [liveOffsets, setLiveOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  const [showDevPreview, setShowDevPreview] = useState(false);
   const panelDragRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -104,6 +154,7 @@ export default function SkillsHillEmbed({ skills, projects }: { skills: Skill[];
     startOffsetX: number;
     startOffsetY: number;
   } | null>(null);
+
 
 
   // Auto-bucket any project tech tag that doesn't match a real skill into "Other"
@@ -143,7 +194,7 @@ export default function SkillsHillEmbed({ skills, projects }: { skills: Skill[];
   useEffect(() => {
     setCarouselIdx(0);
     setDragDx(0);
-    setPanelOffset({ x: 504, y: 211 });
+    setPanelOffset({ x: 694, y: 562 });
   }, [selectedSkillName]);
 
   // Modulo helper that handles negative values (JS `%` keeps sign of dividend).
@@ -177,51 +228,83 @@ export default function SkillsHillEmbed({ skills, projects }: { skills: Skill[];
   };
 
   return (
-    // Anchored to the front hill: bottom-aligned, full width, top 50vh from
-    // the page top. z=80 (between hills and cluster) so the cluster still
-    // renders in front of the embedded text, like the figure is silhouetted
-    // against the painted skill list.
+    // Anchored across the lower portion of the Shadowbox Stage so the papers
+    // sit in front of (and on top of) the hills. z=80 (between hills and
+    // cluster) so the figure cluster still renders in front of the painted
+    // skill list. Top 30% gives the papers a tall enough band that their
+    // pixel-offset layout (designed against the 1600x900 stage) fits
+    // comfortably without spilling off the bottom of the canvas.
     <div
       className="absolute inset-x-0 bottom-0 pointer-events-none"
-      style={{ top: "76vh", zIndex: 80 }}
+      style={{ top: "30%", zIndex: 80 }}
     >
-      {/* Single stacked list of all categories inside one draggable wrapper.
-          Easier to manage than two independent columns. */}
+      {/* Torn-paper-sheet field: each category is its own absolutely-positioned
+          draggable sheet of paper anchored to the centre of the hill band.
+          Drag any sheet by its paper body — the skill chips themselves stay
+          clickable. Variants cycle through the three paper silhouettes so the
+          grouping reads as a stack of scattered notebook pages. The "Other"
+          category always renders so users can see where unmatched/new tech
+          tags will land, even when currently empty. */}
       <div
-        className="relative w-full h-full pl-[20vw] pr-[4vw] pt-[3vh] pb-[8vh] pointer-events-auto"
+        className="relative w-full h-full pointer-events-auto"
         style={{ color: PAPER_INK, overflow: "visible" }}
       >
-        <DraggableStack initialOffset={{ x: 140, y: -190 }}>
-          <SkillsList
-            categories={ALL_CATEGORIES}
-            byCategory={byCategory}
-            selectedSkillName={selectedSkillName}
-            onSelect={(name) => setSelectedSkillName((cur) => (cur === name ? null : name))}
-            projects={projects}
-          />
-        </DraggableStack>
+        {ALL_CATEGORIES.map((cat) => {
+          const list = byCategory.get(cat) ?? [];
+          // Skip empty non-"Other" categories. Always render "Other" as a
+          // visible placeholder so newly-unmatched tags have a clear home.
+          if (list.length === 0 && cat !== "Other") return null;
+          const cfg = PAPER_DEFAULT_POSITIONS[cat] ?? {
+            x: 0, y: 0, variant: 0, widthPx: 360, pinColor: "#c83737",
+          };
+          const variant = PAPER_VARIANTS[cfg.variant % PAPER_VARIANTS.length];
+          return (
+            <DraggablePaper
+              key={cat}
+              category={cat}
+              skills={list}
+              projects={projects}
+              variant={variant}
+              widthPx={cfg.widthPx}
+              pinColor={cfg.pinColor}
+              initialOffset={{ x: cfg.x, y: cfg.y }}
+              selectedSkillName={selectedSkillName}
+              onSelectSkill={(name: string) =>
+                setSelectedSkillName((cur) => (cur === name ? null : name))
+              }
+              onOffsetChange={(o) => setLiveOffsets((prev) => ({ ...prev, [cat]: o }))}
+            />
+          );
+        })}
         {!selectedSkill && (
-          <p className="text-xs italic opacity-60 mt-3 text-center">
-            click a skill to see matching projects
+          <p
+            className="absolute left-1/2 -translate-x-1/2 text-xs italic opacity-60 pointer-events-none"
+            style={{ top: "calc(122% + 0.5rem)" }}
+          >
+            click a skill chip to see matching projects · drag any sheet to rearrange
           </p>
         )}
       </div>
 
       {/* Projects-for-selected-skill panel. Rendered separately from the
-          middle column and anchored to the upper portion of the viewport so
+          middle column and anchored to the upper portion of the stage so
           the card list isn't crammed into the same low band as the skill
-          chips. position: fixed bypasses the parent's `top: 76vh`. */}
+          chips. */}
       {selectedSkill && (
         <div
           className="pointer-events-auto px-5 py-4 text-left"
           style={{
-            position: "fixed",
-            top: "60vh",
+            // Was `position: fixed` (viewport-anchored). Inside the Stage's
+            // CSS-transform-scaled subtree, switching to absolute keeps the
+            // panel anchored to the design canvas so it scales with the rest
+            // of the scene rather than escaping to viewport pixels.
+            position: "absolute",
+            top: 0,
             left: "50%",
             // Combine the default centering translate(-50%, 0) with the
             // user-driven panelOffset so the panel can be dragged anywhere.
             transform: `translate(calc(-50% + ${panelOffset.x}px), ${panelOffset.y}px)`,
-            width: "min(56vw, 640px)",
+            width: 640,
             background: PAPER_FILL,
             border: `1.5px solid ${PAPER_STROKE}`,
             borderRadius: "10px",
@@ -457,14 +540,140 @@ export default function SkillsHillEmbed({ skills, projects }: { skills: Skill[];
         </div>
       )}
 
+      {/* Dev paper-position preview (signed-in only). Toggle button hangs in
+          the top-left corner of the skills band; when expanded it lists each
+          paper's live offset and offers a "Copy block" action that emits the
+          updated PAPER_DEFAULT_POSITIONS source ready to paste back into
+          this file. */}
+      {session && (
+        <div
+          className="absolute pointer-events-auto"
+          style={{ left: 12, top: 12, zIndex: 95 }}
+        >
+          <button
+            onClick={() => setShowDevPreview((v) => !v)}
+            className="text-[11px] px-2 py-1 cursor-pointer"
+            style={{
+              background: PAPER_FILL,
+              border: `1.5px solid ${PAPER_STROKE}`,
+              borderRadius: 6,
+              color: PAPER_INK,
+              boxShadow: "0 2px 4px rgba(0,0,0,0.25)",
+            }}
+          >
+            {showDevPreview ? "hide" : "show"} paper positions
+          </button>
+          {showDevPreview && (
+            <div
+              className="mt-2 p-3 text-[11px] space-y-1"
+              style={{
+                background: PAPER_FILL,
+                border: `1.5px solid ${PAPER_STROKE}`,
+                borderRadius: 8,
+                color: PAPER_INK,
+                boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+                maxWidth: 360,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold uppercase tracking-wider">paper positions</span>
+                <button
+                  onClick={() => {
+                    const src = ALL_CATEGORIES.map((cat) => {
+                      const def = PAPER_DEFAULT_POSITIONS[cat];
+                      if (!def) return null;
+                      const live = liveOffsets[cat];
+                      const x = Math.round(live?.x ?? def.x);
+                      const y = Math.round(live?.y ?? def.y);
+                      const padCat = `"${cat}":`.padEnd(26, " ");
+                      const padX = `x: ${String(x).padStart(5)}`;
+                      const padY = `y: ${String(y).padStart(5)}`;
+                      return `  ${padCat} { ${padX}, ${padY}, variant: ${def.variant}, widthPx: ${def.widthPx}, pinColor: "${def.pinColor}" },`;
+                    }).filter(Boolean).join("\n");
+                    const block = `const PAPER_DEFAULT_POSITIONS: Record<string, { x: number; y: number; variant: number; widthPx: number; pinColor: string }> = {\n${src}\n};`;
+                    const panelLine = `// projects panel default: { x: ${Math.round(panelOffset.x)}, y: ${Math.round(panelOffset.y)} }`;
+                    navigator.clipboard?.writeText(`${panelLine}\n${block}`);
+                  }}
+                  className="text-[10px] px-2 py-0.5 cursor-pointer"
+                  style={paperOvalStyle(0, false)}
+                >
+                  copy block
+                </button>
+              </div>
+              {ALL_CATEGORIES.map((cat) => {
+                const def = PAPER_DEFAULT_POSITIONS[cat];
+                if (!def) return null;
+                const live = liveOffsets[cat];
+                const x = Math.round(live?.x ?? def.x);
+                const y = Math.round(live?.y ?? def.y);
+                const moved = live && (Math.round(live.x) !== def.x || Math.round(live.y) !== def.y);
+                return (
+                  <div
+                    key={cat}
+                    className="flex items-center gap-2"
+                    style={{ opacity: moved ? 1 : 0.7 }}
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-block rounded-full"
+                      style={{ width: 8, height: 8, background: def.pinColor }}
+                    />
+                    <span className="flex-1 truncate">{cat}</span>
+                    <span style={{ color: moved ? PAPER_INK_ACCENT : PAPER_INK }}>
+                      {x.toString().padStart(5)}, {y.toString().padStart(5)}
+                    </span>
+                  </div>
+                );
+              })}
+              {/* Projects-using-<skill> panel position. Only shows when a
+                  skill is selected (the panel only exists then). Defaults
+                  are baked into setPanelOffset's initial value above. */}
+              {(() => {
+                const PANEL_DEFAULT = { x: 694, y: 562 };
+                const x = Math.round(panelOffset.x);
+                const y = Math.round(panelOffset.y);
+                const moved = x !== PANEL_DEFAULT.x || y !== PANEL_DEFAULT.y;
+                return (
+                  <div
+                    className="flex items-center gap-2 mt-2 pt-2"
+                    style={{
+                      opacity: selectedSkill ? 1 : 0.4,
+                      borderTop: `1px dashed ${PAPER_STROKE}`,
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-block"
+                      style={{
+                        width: 8,
+                        height: 8,
+                        background: PAPER_INK_ACCENT,
+                        borderRadius: 2,
+                      }}
+                    />
+                    <span className="flex-1 truncate">
+                      projects panel{selectedSkill ? ` (${selectedSkill.name})` : " (select a skill)"}
+                    </span>
+                    <span style={{ color: moved && selectedSkill ? PAPER_INK_ACCENT : PAPER_INK }}>
+                      {x.toString().padStart(5)}, {y.toString().padStart(5)}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Unmatched tags panel (signed-in only) — spans full width below the
           three columns. Mirrors the Skills.tsx editor: pill row + edit form. */}
       {session && unmatchedTags.length > 0 && (
         <div
           className="absolute left-1/2 -translate-x-1/2 pointer-events-auto px-4 py-3"
           style={{
-            bottom: "1vh",
-            width: "min(64vw, 880px)",
+            bottom: "1%",
+            width: 880,
             background: PAPER_FILL,
             border: `1.5px solid ${PAPER_STROKE}`,
             borderRadius: "52% 48% 46% 54% / 12% 14% 12% 14%",
@@ -578,20 +787,49 @@ export default function SkillsHillEmbed({ skills, projects }: { skills: Skill[];
 // click-vs-drag threshold prevents chip click events from being eaten if the
 // user only nudges the cursor a couple pixels. `onOffsetChange` lets the
 // parent observe the live offset (currently used for a debug logger).
-function DraggableStack({
-  children,
-  onOffsetChange,
+// One torn-paper sheet rendered as its own independently-draggable card.
+// The paper silhouette is the visual background; the inset area (defined by
+// `variant.insetTopPct/insetBottomPct/insetLeftPct/insetRightPct`) hosts the
+// category title and skill chips so they appear hand-lettered onto the paper.
+//
+// Drag is initiated by pointer-down on any non-interactive part of the sheet
+// (anywhere outside a chip button) — that means the paper body itself is the
+// drag handle and chip clicks pass through untouched.
+function DraggablePaper({
+  category,
+  skills,
+  projects,
+  variant,
+  widthPx,
+  pinColor,
   initialOffset,
+  selectedSkillName,
+  onSelectSkill,
+  onOffsetChange,
 }: {
-  children: React.ReactNode;
-  onOffsetChange?: (x: number, y: number) => void;
-  initialOffset?: { x: number; y: number };
-}) {
-  const [offset, _setOffset] = useState(initialOffset ?? { x: 0, y: 0 });
-  const setOffset = (o: { x: number; y: number }) => {
-    _setOffset(o);
-    onOffsetChange?.(o.x, o.y);
+  category: string;
+  skills: Skill[];
+  projects: Project[];
+  variant: {
+    src: string;
+    insetTopPct: number;
+    insetBottomPct: number;
+    insetLeftPct: number;
+    insetRightPct: number;
+    inkColor: string;
+    rotateDeg: number;
   };
+  widthPx: number;
+  pinColor: string;
+  initialOffset: { x: number; y: number };
+  selectedSkillName: string | null;
+  onSelectSkill: (name: string) => void;
+  onOffsetChange?: (offset: { x: number; y: number }) => void;
+}) {
+  const [offset, setOffset] = useState(initialOffset);
+  useEffect(() => {
+    onOffsetChange?.(offset);
+  }, [offset, onOffsetChange]);
   const dragRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -602,17 +840,38 @@ function DraggableStack({
   } | null>(null);
   const DRAG_THRESHOLD_PX = 5;
 
+  // Writable inner area as % of the sheet's bounding box. Used both for
+  // positioning the inner content and for deriving a minimum paper height
+  // so the sheet auto-grows when more skills are added.
+  const innerH = 100 - variant.insetTopPct - variant.insetBottomPct;
+
+  // Estimate the inner content height so the sheet auto-grows when more
+  // skills are added. Header line + ceil(skills/3) chip rows * row height,
+  // with a comfortable minimum so a near-empty category (like "Other"
+  // before any tags drop in) still reads as a real piece of paper.
+  const estimatedRows = Math.max(2, Math.ceil(Math.max(skills.length, 1) / 3));
+  const estimatedContentHeight = 28 /* header */ + estimatedRows * 32 + 16 /* padding */;
+  // Solve: innerH% of paperHeight >= estimatedContentHeight + ~8px breathing room
+  const minPaperHeight = Math.ceil((estimatedContentHeight + 8) / (innerH / 100));
+  const minPaperWidth = widthPx;
+
+  const isEmpty = skills.length === 0;
+
   return (
     <div
+      className="absolute"
       style={{
-        transform: `translate(${offset.x}px, ${offset.y}px)`,
+        left: "50%",
+        top: 0,
+        transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px) rotate(${variant.rotateDeg}deg)`,
+        width: minPaperWidth,
+        minHeight: minPaperHeight,
         touchAction: "none",
         cursor: dragRef.current?.moved ? "grabbing" : "grab",
+        filter: "drop-shadow(0 5px 9px rgba(0,0,0,0.4))",
       }}
       onPointerDown={(e) => {
         if (e.button !== undefined && e.button !== 0) return;
-        // Skip when the press originated on a real interactive element so
-        // chip clicks aren't hijacked.
         const target = e.target as HTMLElement;
         if (target.closest("button, a, input, select, textarea")) return;
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
@@ -647,68 +906,187 @@ function DraggableStack({
         dragRef.current = null;
       }}
     >
-      {children}
+      {/* Paper silhouette — fills the bounding box and stretches to match
+          the content. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={variant.src}
+        alt={`${category} paper sheet`}
+        draggable={false}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "fill",
+          userSelect: "none",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Single push-pin at the top-center of the sheet, with a tiny
+          metallic shaft poking out the upper-left of the head so it reads as
+          a real pin pierced through the paper. */}
+      <Pushpin color={pinColor} top="4px" left="50%" centerX />
+
+      {/* Inset writable area. Positioned inside the paper's deckled edges so
+          the text/chips read as hand-painted onto the page. */}
+      <div
+        className="absolute flex flex-col items-center"
+        style={{
+          top: `${variant.insetTopPct}%`,
+          bottom: `${variant.insetBottomPct}%`,
+          left: `${variant.insetLeftPct}%`,
+          right: `${variant.insetRightPct}%`,
+          padding: "0.4rem 0.5rem 0.55rem 0.5rem",
+          overflow: "visible",
+        }}
+      >
+        <p
+          className="text-[11px] uppercase tracking-[0.18em] font-bold mb-1.5 text-center select-none"
+          style={{
+            color: variant.inkColor,
+            // Subtle ink-bleed shadow so the hand-painted lettering reads
+            // against the warm paper without looking like flat web type.
+            textShadow: "0 1px 0 rgba(0,0,0,0.08)",
+            fontFamily: "Georgia, 'Times New Roman', serif",
+          }}
+        >
+          {category}
+        </p>
+        {isEmpty ? (
+          <p
+            className="text-[10px] italic text-center px-2 select-none"
+            style={{ color: variant.inkColor, opacity: 0.55 }}
+          >
+            (new tech tags that don&apos;t match an existing skill land here)
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-x-1.5 gap-y-1.5 justify-center">
+            {skills.map((s) => {
+              const active = selectedSkillName === s.name;
+              const hasProjects = projectsForSkill(s, projects).length > 0;
+              return (
+                <button
+                  key={s.name}
+                  onClick={() => onSelectSkill(s.name)}
+                  className="text-[11px] px-2.5 py-0.5 cursor-pointer transition-transform hover:scale-105 inline-flex items-center gap-1"
+                  style={paperOvalStyle(strSeed(s.name), active)}
+                >
+                  <span>{s.name}</span>
+                  {hasProjects && (
+                    <span
+                      aria-hidden
+                      className="inline-block rounded-full"
+                      style={{
+                        width: 5,
+                        height: 5,
+                        background: active ? PAPER_FILL : PAPER_INK_ACCENT,
+                        opacity: active ? 0.9 : 0.7,
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function SkillsList({
-  categories,
-  byCategory,
-  selectedSkillName,
-  onSelect,
-  projects,
+// A single CSS-rendered push-pin. The dome is a radial gradient (light
+// highlight on top, darker rim) so the pin reads as a glossy hemisphere
+// pressed into the paper. A small angled metallic shaft pokes out the
+// upper-left of the head, suggesting the pin is actually pierced through
+// the paper into the surface behind. Position is set by passing any of
+// `top/right/bottom/left`; pass `centerX` to combine `left: 50%` with a
+// `translateX(-50%)` so the pin centres horizontally on its anchor.
+function Pushpin({
+  color,
+  top,
+  right,
+  bottom,
+  left,
+  centerX = false,
+  size = 18,
+  rotateDeg = 0,
 }: {
-  categories: string[];
-  byCategory: Map<string, Skill[]>;
-  selectedSkillName: string | null;
-  onSelect: (name: string) => void;
-  projects: Project[];
+  color: string;
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+  centerX?: boolean;
+  size?: number;
+  rotateDeg?: number;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      {categories.map((cat) => {
-        const list = byCategory.get(cat);
-        if (!list || list.length === 0) return null;
-        return (
-          <div key={cat}>
-            <p
-              className="text-[11px] uppercase tracking-[0.2em] font-bold mb-2 text-left"
-              style={{ color: PAPER_INK_ACCENT }}
-            >
-              {cat}
-            </p>
-            <div className="flex flex-wrap gap-x-2 gap-y-2">
-              {list.map((s) => {
-                const active = selectedSkillName === s.name;
-                const hasProjects = projectsForSkill(s, projects).length > 0;
-                return (
-                  <button
-                    key={s.name}
-                    onClick={() => onSelect(s.name)}
-                    className="text-xs px-3 py-1 cursor-pointer transition-transform hover:scale-105 inline-flex items-center gap-1.5"
-                    style={paperOvalStyle(strSeed(s.name), active)}
-                  >
-                    <span>{s.name}</span>
-                    {hasProjects && (
-                      <span
-                        aria-hidden
-                        className="inline-block rounded-full"
-                        style={{
-                          width: 6,
-                          height: 6,
-                          background: active ? PAPER_FILL : PAPER_INK_ACCENT,
-                          opacity: active ? 0.9 : 0.7,
-                        }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        top,
+        right,
+        bottom,
+        left,
+        width: size,
+        height: size,
+        transform: `${centerX ? "translateX(-50%) " : ""}rotate(${rotateDeg}deg)`,
+        pointerEvents: "none",
+        zIndex: 3,
+        // Pin cast-shadow on the paper below.
+        filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.55))",
+      }}
+    >
+      {/* Metallic shaft — short angled silver sliver protruding from the
+          upper-left of the head. Renders behind the dome (lower z) so the
+          dome appears to sit on top of the pin's stem. */}
+      <div
+        style={{
+          position: "absolute",
+          top: `${size * 0.05}px`,
+          left: `${size * 0.05}px`,
+          width: `${size * 0.55}px`,
+          height: `${size * 0.16}px`,
+          background:
+            "linear-gradient(180deg, #f4f4f4 0%, #c9c9c9 40%, #8a8a8a 80%, #4a4a4a 100%)",
+          border: "0.5px solid rgba(0,0,0,0.55)",
+          borderRadius: "1px",
+          transform: "rotate(-38deg)",
+          transformOrigin: "100% 50%",
+          boxShadow: "0 1px 1px rgba(0,0,0,0.5)",
+          zIndex: 1,
+        }}
+      />
+      {/* Pin head — glossy dome. Sits above the metallic shaft. */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          borderRadius: "50%",
+          background: `radial-gradient(circle at 32% 30%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.25) 18%, ${color} 50%, rgba(0,0,0,0.45) 100%)`,
+          border: "1px solid rgba(0,0,0,0.45)",
+          boxShadow: "inset 0 -2px 3px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4)",
+          zIndex: 2,
+        }}
+      />
+      {/* Tiny inner glint to sell the gloss. */}
+      <div
+        style={{
+          position: "absolute",
+          top: `${size * 0.18}px`,
+          left: `${size * 0.28}px`,
+          width: `${size * 0.22}px`,
+          height: `${size * 0.16}px`,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.85)",
+          filter: "blur(0.6px)",
+          zIndex: 3,
+        }}
+      />
     </div>
   );
 }

@@ -46,7 +46,10 @@ export default function ResumeJournal() {
   const flipBookRef = useRef<{ pageFlip: () => { flipNext: () => void; flipPrev: () => void; getCurrentPageIndex: () => number; getPageCount: () => number } } | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
 
-  const [panelOffset, setPanelOffset] = useState({ x: 0, y: 250 });
+  // Initial offset within the Shadowbox Stage (1600x900 design canvas). The
+  // book is 460x620 px and we anchor it near stage-top so its full height
+  // fits inside the design canvas at any aspect ratio.
+  const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 });
   const panelDragRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -76,8 +79,13 @@ export default function ResumeJournal() {
     <div
       className="pointer-events-auto"
       style={{
-        position: "fixed",
-        top: "30vh",
+        // Was `position: fixed` (viewport-anchored). Switched to absolute so
+        // the book is positioned within the Shadowbox Stage's design canvas
+        // and scales with the rest of the scene at any aspect ratio. Anchor
+        // ~13% from the stage top so the 620px-tall book has room to render
+        // its full height (13% + 620/900 ≈ 82%, fits within the 100% stage).
+        position: "absolute",
+        top: "48%",
         left: "50%",
         // Two-page spread layout — wrapper is twice the page width.
         width: BOOK_WIDTH * 2,
@@ -366,7 +374,7 @@ export default function ResumeJournal() {
           className="absolute pointer-events-none text-center select-none"
           style={{
             bottom: "-1.5rem",
-            left: 0,
+            left: 110,
             right: 0,
             color: PAPER_INK_DIM,
             fontSize: "10px",

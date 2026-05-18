@@ -3,6 +3,7 @@
 import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree, extend } from "@react-three/fiber";
 import { OrbitControls, Html } from "@react-three/drei";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -19,6 +20,94 @@ import { useSession } from "next-auth/react";
 import { constellations } from "@/data/constellations";
 
 extend({ EffectComposer, RenderPass, UnrealBloomPass, OutputPass });
+
+// Galaxy-view starfield. Replaces the painted /shadowbox/sky.webp backdrop for
+// galaxy / clusters / constellation modes with a procedural starfield over the
+// same dark-blue gradient as the painted sky's tonal range. The shadowbox view
+// keeps the painted sky.webp because its hand-painted texture matters there;
+// here the dynamic stars feel more alive while users orbit the 3D galaxy.
+//
+// Stars use a deterministic mulberry32 PRNG so positions/sizes/twinkle phases
+// don't reshuffle across re-renders (the parent re-renders on every scroll +
+// shadowbox-phase tick). Memoized at module scope for the same reason.
+function makeStarfieldRng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+// Tier of larger, rarer stars + a denser sprinkle of small ones reads as
+// realistic depth without overpowering the 3D galaxy in front of it.
+const STARFIELD_COUNT = 220;
+const STARFIELD_STARS = Array.from({ length: STARFIELD_COUNT }, (_, i) => {
+  const r = makeStarfieldRng(0xc0ffee ^ (i * 2654435761));
+  // 92% small (1-2.5px), 7% medium (2.5-4px), 1% large (4-6px) — most stars
+  // are barely-visible points; a handful of brighter ones anchor the eye.
+  const tier = r();
+  const size = tier < 0.92 ? 1 + r() * 1.5 : tier < 0.99 ? 2.5 + r() * 1.5 : 4 + r() * 2;
+  // Slight blue/white tint variance.
+  const hue = 200 + r() * 40;
+  const sat = 10 + r() * 30;
+  const light = 80 + r() * 20;
+  return {
+    left: r() * 100,
+    top: r() * 100,
+    size,
+    color: `hsl(${hue}, ${sat}%, ${light}%)`,
+    delay: r() * 6,
+    duration: 2.5 + r() * 4,
+    opacityMin: 0.2 + r() * 0.3,
+    opacityMax: 0.7 + r() * 0.3,
+  };
+});
+
+function GalaxyStarfield({ opacity }: { opacity: number }) {
+  return (
+    <div
+      aria-hidden
+      className="fixed inset-0 w-screen h-screen pointer-events-none select-none"
+      style={{
+        zIndex: 0,
+        opacity,
+        transition: "opacity 0.4s ease",
+        // Matches the painted sky.webp's tonal range — sampled top ~rgb(22,31,48),
+        // bottom ~rgb(2,8,24). Keeps the visual handoff to the shadowbox sky
+        // continuous.
+        background: "linear-gradient(180deg, rgb(22,31,48) 0%, rgb(10,16,32) 55%, rgb(2,8,24) 100%)",
+      }}
+    >
+      <style>{`
+        @keyframes galaxy-starfield-twinkle {
+          0%, 100% { opacity: var(--gs-min, 0.2); }
+          50%      { opacity: var(--gs-max, 1); }
+        }
+      `}</style>
+      {STARFIELD_STARS.map((s, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left: `${s.left}vw`,
+            top: `${s.top}vh`,
+            width: `${s.size}px`,
+            height: `${s.size}px`,
+            borderRadius: "50%",
+            background: s.color,
+            // Soft halo for the larger stars; the small ones get a tiny glow.
+            boxShadow: `0 0 ${Math.max(2, s.size * 1.5)}px ${s.size * 0.4}px ${s.color}`,
+            ["--gs-min" as string]: s.opacityMin,
+            ["--gs-max" as string]: s.opacityMax,
+            animation: `galaxy-starfield-twinkle ${s.duration}s ease-in-out ${s.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 // --- Galaxy generation config ---
 const NUM_STARS = 7000;
@@ -1045,11 +1134,19 @@ function CameraZoomRig() {
   return null;
 }
 
-function Scene({ concepts, dispersionRef, onConceptClick, hasSession, isMobile }: { concepts: Concept[]; dispersionRef: React.MutableRefObject<{ target: number; current: number }>; onConceptClick: (concept: Concept) => void; hasSession: boolean; isMobile: boolean }) {
+function Scene({ concepts, dispersionRef, onConceptClick, hasSession, isMobile, orbitControlsRef }: { concepts: Concept[]; dispersionRef: React.MutableRefObject<{ target: number; current: number }>; onConceptClick: (concept: Concept) => void; hasSession: boolean; isMobile: boolean; orbitControlsRef: React.MutableRefObject<OrbitControlsImpl | null> }) {
   const [hovered, setHovered] = useState<Concept | null>(null);
   const [hoveredPos, setHoveredPos] = useState<THREE.Vector3 | null>(null);
   const { mode } = useScroll();
+  const { phase: sbPhase } = useShadowbox();
   const [dispersionProgress, setDispersionProgress] = useState(0);
+  // OrbitControls auto-rotates the camera around its target. While the
+  // GalaxyReturnAnimator is manually driving the camera (entry/exit camera
+  // reorient + shrink transition), auto-rotate would fight the lerp and
+  // produce visible jitter. Disable it during those phases.
+  const animatingCamera =
+    sbPhase === "pre-enter" || sbPhase === "transition" || sbPhase === "pre-exit";
+  const enableUserRotate = !animatingCamera;
   // Deferred mode: when leaving timeline, stars wait until lines fade out
   const [deferredMode, setDeferredMode] = useState(mode);
   const prevModeRef = useRef(mode);
@@ -1096,14 +1193,19 @@ function Scene({ concepts, dispersionRef, onConceptClick, hasSession, isMobile }
       <TimelineOverlay concepts={concepts} mode={mode} onLinesHidden={handleLinesHidden} />
       <Tooltip concept={hovered} position={hoveredPos} />
       <OrbitControls
+        ref={orbitControlsRef}
         enableZoom={isMobile}
         enablePan={isMobile}
-        enableRotate={true}
-        autoRotate={mode === "galaxy"}
+        enableRotate={enableUserRotate}
+        autoRotate={enableUserRotate && mode === "galaxy"}
         autoRotateSpeed={0.3}
         touches={isMobile ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined}
         mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: undefined as unknown as THREE.MOUSE, RIGHT: undefined as unknown as THREE.MOUSE }}
       />
+      {/* When the user returns to the galaxy from the shadowbox sections,
+          pull the camera out to a top-down overview wide enough to frame the
+          entire galaxy. */}
+      <GalaxyReturnAnimator controlsRef={orbitControlsRef} />
       <RightClickZoom />
       <Bloom />
       <DispersionController dispersionRef={dispersionRef} />
@@ -1124,16 +1226,30 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
   const lastWheelTime = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const dispersionRef = useRef({ target: 0, current: 0 });
+  // Ref into <OrbitControls> so the galaxy-return animator can drive both
+  // the camera position AND the controls.target during the top-down pull-out.
+  const orbitControlsRef = useRef<OrbitControlsImpl | null>(null);
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileHint, setShowMobileHint] = useState(true);
   const [touchedOnce, setTouchedOnce] = useState(false);
+  // Track viewport size so the shadowbox shrink transform can land the
+  // galaxy on the staged paper-galaxy's actual pixel position at any
+  // viewport aspect ratio or zoom level.
+  const [viewportSize, setViewportSize] = useState({ w: 1600, h: 900 });
 
   const handleConceptClick = useCallback((concept: Concept) => {
     router.push(`/concept/${concept.id}`);
   }, [router]);
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const update = () => setViewportSize({ w: window.innerWidth, h: window.innerHeight });
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   // Detect touch/mobile device (pointer: coarse = touchscreen)
   useEffect(() => {
@@ -1319,31 +1435,78 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
   // the paper galaxy in the upper-right, then fade out so the static paper
   // galaxy appears to take its place seamlessly.
   // sbTransition: 0 = full galaxy view, 1 = fully in upper-right
-  // Paper galaxy sits at viewport ~right 18%, top 16% (i.e. centered around
-  // (82%, 16%)). Container origin is its own center (50%, 50%), so we
-  // translate toward (82%, 16%) ≈ +32vw, -34vh, and scale to ~0.22.
-  const t = sbPhase === "galaxy" ? 0 : sbTransition;
-  const targetScale = 1 - t * 0.78;            // 1 → 0.22
-  const translateXvw = t * 32;
-  const translateYvh = -t * 34;
-  // Stay visible while shrinking; only start fading after it has reached the
-  // upper-right (transition past ~0.75), then go to 0 by transition=1.
-  const containerOpacity =
-    sbPhase === "galaxy"
+  //
+  // The paper galaxy is laid out inside the Shadowbox Stage (1600x900 design
+  // canvas, scaled-to-fit, centered). Its CSS box: `right-[4%] top-[6%]
+  // w-[28%]`. We mirror that target in viewport pixel space so the shrink
+  // lands exactly where the static paper galaxy will appear.
+  //
+  // pre-enter / pre-exit are camera-only stages — the outer DOM must stay at
+  // its non-shrunk pose so the shrink/expand only happens during the
+  // "transition" phase itself.
+  const t =
+    sbPhase === "galaxy" || sbPhase === "pre-enter" || sbPhase === "pre-exit"
+      ? 0
+      : sbPhase === "section"
       ? 1
-      : t < 0.75
-      ? 1
-      : Math.max(0, 1 - (t - 0.75) / 0.25);
+      : sbTransition;
+  // Stage geometry mirrored from src/components/Stage.tsx.
+  const STAGE_W = 1600;
+  const STAGE_H = 900;
+  const stageScale = Math.min(viewportSize.w / STAGE_W, viewportSize.h / STAGE_H);
+  // Stage's top-left in viewport pixels (centered with `align/justify center`).
+  const stageLeftPx = (viewportSize.w - STAGE_W * stageScale) / 2;
+  const stageTopPx = (viewportSize.h - STAGE_H * stageScale) / 2;
+  // Paper galaxy center in design-canvas coords: right 4% + width 28%, top 6%.
+  // The image is `w-[28%]`, height auto — but we don't know its natural aspect
+  // ratio here; the paper galaxy image is approximately square so we treat
+  // height ≈ 28% of stage width for the vertical center estimate.
+  const paperRightPct = 4;
+  const paperTopPct = 6;
+  const paperWidthPct = 28;
+  const paperCenterXdesign = STAGE_W * (1 - (paperRightPct + paperWidthPct / 2) / 100);
+  const paperCenterYdesign = STAGE_H * (paperTopPct / 100) + (STAGE_W * paperWidthPct / 100) / 2;
+  // Convert to viewport pixels.
+  const paperCenterXvp = stageLeftPx + paperCenterXdesign * stageScale;
+  const paperCenterYvp = stageTopPx + paperCenterYdesign * stageScale;
+  // Galaxy container is `w-full h-screen`, so its center is the viewport center.
+  const galaxyCenterXvp = viewportSize.w / 2;
+  const galaxyCenterYvp = viewportSize.h / 2;
+  // Translate the galaxy container so its center coincides with the paper
+  // galaxy's center at t=1. translateXpx/translateYpx are in viewport pixels.
+  const translateXpx = t * (paperCenterXvp - galaxyCenterXvp);
+  const translateYpx = t * (paperCenterYvp - galaxyCenterYvp);
+  // Shrink the galaxy so its visible diameter roughly matches the paper
+  // galaxy's width. Original heuristic was scale 0.22 at fullscreen 16:9
+  // (where stageScale=1 against a 1600x900 viewport). Now scale tracks the
+  // paper galaxy's actual rendered width: (STAGE_W * paperWidthPct/100 *
+  // stageScale) / viewportSize.h roughly. Keep the original ~0.22 endpoint
+  // at the reference aspect ratio.
+  const targetScaleAtT1 = (STAGE_W * (paperWidthPct / 100) * stageScale) / Math.min(viewportSize.w, viewportSize.h) * 0.78;
+  const targetScale = 1 - t * (1 - Math.max(0.12, Math.min(0.35, targetScaleAtT1)));
+  // Stay fully visible through the entire shrink. Only fade out AFTER the
+  // galaxy has fully minimized into the paper-galaxy slot — i.e. once the
+  // shadowbox has switched to the "section" phase. The CSS opacity transition
+  // below (0.4s ease) handles the fade itself.
+  const containerOpacity = sbPhase === "section" ? 0 : 1;
 
   return (
-    <div
+    <>
+      {/* Galaxy-view starfield backdrop. Solid dark-blue gradient matching
+          the painted sky.webp's tonal range (top ~rgb(22,31,48), bottom
+          ~rgb(2,8,24)) with procedurally-generated stars overlaid. The
+          shadowbox's own painted sky.webp (z=10) takes over once the user
+          enters a section — by then this layer has faded out so the
+          appearance handoff is visually continuous. */}
+      <GalaxyStarfield opacity={containerOpacity} />
+      <div
       ref={containerRef}
       id="galaxy-container"
       className="w-full h-screen relative"
       style={{
         opacity: containerOpacity,
         transformOrigin: "50% 50%",
-        transform: `translate(${translateXvw}vw, ${translateYvh}vh) scale(${targetScale})`,
+        transform: `translate(${translateXpx}px, ${translateYpx}px) scale(${targetScale})`,
         // Smooth interpolation in both directions, so scrolling back up from
         // section to galaxy animates the shrink reversal rather than snapping.
         transition: "opacity 0.4s ease, transform 0.8s ease",
@@ -1411,7 +1574,7 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
         onCreated={() => { if (onReady) onReady(); }}
         onTouchStart={isMobile ? handleFirstTouch : undefined}
       >
-        <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} isMobile={isMobile} />
+        <Scene concepts={concepts} dispersionRef={dispersionRef} onConceptClick={handleConceptClick} hasSession={!!sessionData} isMobile={isMobile} orbitControlsRef={orbitControlsRef} />
       </Canvas>
       {/* Bottom overlay — isolated from canvas touch events; hidden in shadowbox */}
       <div
@@ -1501,5 +1664,84 @@ export default function GalaxyVisualization({ concepts, onReady }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GalaxyReturnAnimator — drives a smooth top-down "open the box" camera move
+// whenever the shadowbox transitions back to the galaxy phase. The galaxy is
+// a flat spiral on the XZ plane (Y is thickness), so a true top-down view sits
+// the camera on +Y looking straight down at the origin. Distance is chosen so
+// the galaxy's outermost arms fit comfortably inside the viewport at FOV 60°
+// regardless of aspect ratio.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Galaxy geometry summary (see ARM_X_MEAN / ARM_X_DIST / GALAXY_SCALE above):
+//   arm stars centred at ±200 with stdev 100, scaled by 0.03.
+// So 3-sigma reach is ~(200 + 3·100) * 0.03 ≈ 15 world-units from origin.
+const GALAXY_FIT_RADIUS = 15;
+// Distance to fit `radius` vertically at FOV 60°: r / tan(fov/2). Multiply by
+// a fudge factor so narrow (portrait-ish) browser viewports still frame the
+// whole galaxy without clipping the horizontal extent.
+const GALAXY_TOPDOWN_HEIGHT = (() => {
+  const fovRad = (60 * Math.PI) / 180;
+  const fit = GALAXY_FIT_RADIUS / Math.tan(fovRad / 2);
+  return fit * 1.25;
+})();
+
+// Default perspective pose — matches the camera prop on the <Canvas> below.
+// Used as the "return to" pose when leaving the shadowbox.
+const PERSPECTIVE_CAMERA_POS = new THREE.Vector3(0, 3, 8);
+const TOPDOWN_CAMERA_POS = new THREE.Vector3(0, GALAXY_TOPDOWN_HEIGHT, 0);
+const ORIGIN_TARGET = new THREE.Vector3(0, 0, 0);
+
+function GalaxyReturnAnimator({
+  controlsRef,
+}: {
+  controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+}) {
+  const { camera } = useThree();
+  const { phase } = useShadowbox();
+  // The animator drives the camera toward one of two poses depending on
+  // shadowbox phase:
+  //   pre-enter, transition  → top-down "paper galaxy" pose
+  //   pre-exit               → default perspective pose
+  // In all other phases it stays inert and lets the user control the camera
+  // via OrbitControls.
+  const targetRef = useRef<"topdown" | "perspective" | null>(null);
+  const prevPhaseRef = useRef(phase);
+
+  useEffect(() => {
+    if (phase === "pre-enter" || phase === "transition") {
+      // Entering: lerp to top-down. Also re-engages on the return-trip
+      // transition (galaxy unshrinking) so we stay top-down through the
+      // shrink reversal.
+      targetRef.current = "topdown";
+    } else if (phase === "pre-exit") {
+      // Exiting: lerp from top-down back to perspective.
+      targetRef.current = "perspective";
+    } else {
+      // galaxy / section — done animating, hand control back to OrbitControls.
+      targetRef.current = null;
+    }
+    prevPhaseRef.current = phase;
+  }, [phase]);
+
+  useFrame(() => {
+    const target = targetRef.current;
+    if (!target) return;
+    const ctrls = controlsRef.current;
+    if (!ctrls?.target) return;
+    // Exponential approach via Vector3.lerp(): lerps quickly at first,
+    // decelerates as it lands. Higher k = snappier; 0.08 settles in ~600ms
+    // which matches PRE_ENTER_MS.
+    const k = 0.08;
+    const desiredPos = target === "topdown" ? TOPDOWN_CAMERA_POS : PERSPECTIVE_CAMERA_POS;
+    camera.position.lerp(desiredPos, k);
+    ctrls.target.lerp(ORIGIN_TARGET, k);
+    camera.lookAt(ctrls.target);
+    ctrls.update?.();
+  });
+  return null;
 }

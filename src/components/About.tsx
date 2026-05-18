@@ -155,40 +155,13 @@ export default function About({ hideHeader = false }: { hideHeader?: boolean } =
               </>
             ) : (
               <>
-                {/* Playful: each paragraph leans the opposite direction of
-                    the previous one, like handwritten notes scattered together. */}
-                <p
-                  className="text-lg leading-relaxed"
-                  style={{
-                    color: "inherit",
-                    transform: "rotate(-1.5deg)",
-                    transformOrigin: "left center",
-                  }}
-                >
+                <p className="text-lg leading-relaxed" style={{ color: "inherit" }}>
                   {highlightText(intro)}
                 </p>
-                <p
-                  className="leading-relaxed italic"
-                  style={{
-                    color: "inherit",
-                    opacity: 0.85,
-                    transform: "rotate(1.2deg)",
-                    transformOrigin: "right center",
-                    marginLeft: "1.5rem",
-                  }}
-                >
+                <p className="text-lg leading-relaxed italic" style={{ color: "inherit", opacity: 0.85 }}>
                   {highlightText(body1)}
                 </p>
-                <p
-                  className="leading-relaxed"
-                  style={{
-                    color: "inherit",
-                    opacity: 0.85,
-                    transform: "rotate(-1deg)",
-                    transformOrigin: "left center",
-                    marginRight: "1.5rem",
-                  }}
-                >
+                <p className="text-lg leading-relaxed" style={{ color: "inherit", opacity: 0.85 }}>
                   {highlightText(body2)}
                 </p>
               </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { useShadowbox } from "@/lib/shadowbox";
 
 // Bridges the original GalaxyVisualization's mode/pastVisualization model to
@@ -38,7 +38,15 @@ const ScrollContext = createContext<ScrollContextType>({
 export function ScrollProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<Mode>("galaxy");
   const { phase, enterShadowbox, returnToGalaxy } = useShadowbox();
-  const pastVisualization = phase !== "galaxy";
+  // pre-enter and pre-exit are camera-only stages where the 3D galaxy is
+  // still fullscreen — treat them as galaxy view (overlays stay visible).
+  const pastVisualization =
+    phase !== "galaxy" && phase !== "pre-enter" && phase !== "pre-exit";
+  // Remember which visualization mode the user was in when they entered the
+  // shadowbox. The 3D galaxy is force-snapped to "galaxy" mode on entry so
+  // its shape matches the paper-galaxy artwork, and on return we restore
+  // the mode they were exploring so they don't lose context.
+  const preEntryModeRef = useRef<Mode>("galaxy");
 
   const scrollProgress = mode === "galaxy" ? 0 : mode === "reduction" ? 0.5 : 1;
 
@@ -77,10 +85,39 @@ export function ScrollProvider({ children }: { children: ReactNode }) {
     // setPastVisualization(false) to snap back to the galaxy when the user
     // scrolled up past it, but in the new shadowbox model that's not the
     // intended UX — return-to-galaxy is reserved for explicit user action.
-    if (v) enterShadowbox();
-  }, [enterShadowbox]);
+    if (!v) return;
+    // Remember the current viz mode so we can restore it on return.
+    preEntryModeRef.current = mode;
+    if (mode !== "galaxy") {
+      // Snap to galaxy first and wait for the dot/line rearrangement
+      // animation (~1.5s) to settle before kicking off the camera reorient +
+      // shrink sequence. This produces the requested ordering: viz morphs
+      // back to galaxy, THEN slides into the paper-galaxy slot.
+      setModeState("galaxy");
+      const DOT_SETTLE_MS = 1500;
+      setTimeout(() => enterShadowbox(), DOT_SETTLE_MS);
+    } else {
+      enterShadowbox();
+    }
+  }, [enterShadowbox, mode]);
   // returnToGalaxy is reserved for explicit user action elsewhere
   void returnToGalaxy;
+
+  // When the shadowbox lands back in the galaxy phase (camera reorient lerp
+  // has just completed), restore whichever viz mode the user was in before
+  // they entered. The user explicitly asked for the galaxy to read as the
+  // galaxy view FIRST, then morph back into clusters/timeline — so we hold
+  // off on the mode swap until the camera has finished returning to
+  // perspective.
+  const prevPhaseRef = useRef(phase);
+  useEffect(() => {
+    if (prevPhaseRef.current !== "galaxy" && phase === "galaxy") {
+      if (preEntryModeRef.current !== "galaxy") {
+        setModeState(preEntryModeRef.current);
+      }
+    }
+    prevPhaseRef.current = phase;
+  }, [phase]);
 
   return (
     <ScrollContext.Provider
