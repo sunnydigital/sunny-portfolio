@@ -419,7 +419,14 @@ export default function Shadowbox({ sectionContent }: ShadowboxProps) {
       {/* Everything else lives inside the Stage (1600x900 design canvas that
           scales-to-fit). Inside the stage, percentages are percentages of the
           stage box — so a position tuned at fullscreen 1080p stays in the
-          same relative spot regardless of viewport aspect ratio or zoom. */}
+          same relative spot regardless of viewport aspect ratio or zoom.
+
+          Wrapper z=12 lifts Stage above the twinkling-star layer (z=11) so
+          the galaxy and moon paint in front of the stars. Stage's own
+          transform creates a stacking context, so per-image zIndex inside
+          can't compete with the star layer outside — the ordering has to
+          happen here, on a sibling of TwinkleStars. */}
+      <div className="absolute inset-0" style={{ zIndex: 12, pointerEvents: "none" }}>
       <Stage style={{ pointerEvents: "none" }}>
         {/* Background paper layers (galaxy + moon) — these stay at a constant
           scale across sections. Foreground elements like the hills and
@@ -507,6 +514,7 @@ export default function Shadowbox({ sectionContent }: ShadowboxProps) {
         </div>
 
       </Stage>
+      </div>
 
       {/* Hill stack — lives OUTSIDE the Stage and spans the full viewport
           width so the hill always covers the entire bottom of the screen at
