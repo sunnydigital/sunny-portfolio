@@ -86,7 +86,7 @@ export default function Skills({ skills, projects }: { skills: Skill[]; projects
       tags: newTags.trim() ? newTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
     };
     const skillId = newName.trim().toLowerCase().replace(/\s+/g, "-");
-    saveToDb("skills", { id: skillId, ...skill, is_user_created: true }).catch(() => {});
+    saveToDb("skills", { id: skillId, ...skill, is_user_created: true }).catch(() => { });
     setNewName(""); setNewCategory(""); setNewLevel(50); setNewTags(""); setShowNewForm(false);
     window.location.reload();
   };
@@ -100,7 +100,7 @@ export default function Skills({ skills, projects }: { skills: Skill[]; projects
       tags: editTags.trim() ? editTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
     };
     const skillId = editingTag.toLowerCase().replace(/\s+/g, "-");
-    saveToDb("skills", { id: skillId, ...skill, is_user_created: true }).catch(() => {});
+    saveToDb("skills", { id: skillId, ...skill, is_user_created: true }).catch(() => { });
     setEditingTag(null); setEditCategory("Other"); setEditLevel(50); setEditTags("");
     window.location.reload();
   };
@@ -207,8 +207,8 @@ export default function Skills({ skills, projects }: { skills: Skill[]; projects
                         border: isSelected
                           ? "1px solid var(--accent)"
                           : hasProjects
-                          ? "1px solid rgba(2,132,199,0.25)"
-                          : "1px solid var(--border)",
+                            ? "1px solid rgba(2,132,199,0.25)"
+                            : "1px solid var(--border)",
                         transform: isSelected ? "scale(1.05)" : "scale(1)",
                       }}
                     >

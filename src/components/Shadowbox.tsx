@@ -110,7 +110,7 @@ const HILL_CLUSTER_LAYERS: ClusterLayer[] = [
     end: 0.8,
     widthVw: 50 / 16,    // 5.25vw
     bottomVw: 270 / 16,  // 27vw
-    leftFromCenterVw: -(84 / 16) / 2, // centered
+    leftFromCenterVw: -(42 / 16) / 2, // centered
     dropShadow: "drop-shadow(0 3px 5px rgba(0,0,0,0.55))",
   },
   {
