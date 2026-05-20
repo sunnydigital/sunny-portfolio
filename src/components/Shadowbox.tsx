@@ -91,15 +91,15 @@ type ClusterLayer = {
 };
 const HILL_CLUSTER_LAYERS: ClusterLayer[] = [
   {
-    src: "/shadowbox/tree.webp",
+    src: "/shadowbox/tree.gif",
     alt: "Bare tree",
     start: 0.45,
     end: 0.7,
-    widthVw: 250 / 16,   // 31.25vw
+    widthVw: 480 / 16,   // 31.25vw
     bottomVw: 250 / 16,  // 25.875vw
     // Tree's right edge anchored to viewport center (left edge one
     // tree-width to the left).
-    leftFromCenterVw: -280 / 16, // -31.25vw
+    leftFromCenterVw: -422 / 16, // -31.25vw
     rotateDeg: -10,
     dropShadow: "drop-shadow(0 6px 10px rgba(0,0,0,0.55))",
   },
@@ -427,25 +427,71 @@ export default function Shadowbox({ sectionContent }: ShadowboxProps) {
           can't compete with the star layer outside — the ordering has to
           happen here, on a sibling of TwinkleStars. */}
       <div className="absolute inset-0" style={{ zIndex: 12, pointerEvents: "none" }}>
-      <Stage style={{ pointerEvents: "none" }}>
-        {/* Background paper layers (galaxy + moon) — these stay at a constant
+        <Stage style={{ pointerEvents: "none" }}>
+          {/* Background paper layers (galaxy + moon) — these stay at a constant
           scale across sections. Foreground elements like the hills and
           cluster zoom via sceneScale separately. */}
-        <div
-          className="absolute inset-0"
-          style={{ opacity: 1, zIndex: 1 }}
-        >
-          {showLayers && STATIC_LAYERS.map((layer) => {
-            const tIn = smoothstep(layer.start, layer.end, effectiveTransition);
-            // Galaxy and moon both sit at z=12, above the twinkle-star layer
-            // (z=11). DOM order still controls which renders on top of the
-            // other when they overlap (later entry wins).
-            const z = 12;
-            if (layer.spin) {
-              // CSS animation instead of framer's `animate` prop — framer can
-              // reset rotate state on parent re-renders (the wrapper above
-              // re-renders on every scroll tick via `opacity: stackOpacity`),
-              // which visually freezes the galaxy. CSS keyframes are immune.
+          <div
+            className="absolute inset-0"
+            style={{ opacity: 1, zIndex: 1 }}
+          >
+            {showLayers && STATIC_LAYERS.map((layer) => {
+              const tIn = smoothstep(layer.start, layer.end, effectiveTransition);
+              // Galaxy and moon both sit at z=12, above the twinkle-star layer
+              // (z=11). DOM order still controls which renders on top of the
+              // other when they overlap (later entry wins).
+              const z = 12;
+              if (layer.spin) {
+                // CSS animation instead of framer's `animate` prop — framer can
+                // reset rotate state on parent re-renders (the wrapper above
+                // re-renders on every scroll tick via `opacity: stackOpacity`),
+                // which visually freezes the galaxy. CSS keyframes are immune.
+                return (
+                  <img
+                    key={layer.src}
+                    src={layer.src}
+                    alt={layer.alt}
+                    className={layer.className}
+                    style={{
+                      ...layer.style,
+                      opacity: tIn,
+                      zIndex: z,
+                      pointerEvents: "none",
+                      userSelect: "none",
+                      transformOrigin: "50% 50%",
+                      animation: "shadowbox-galaxy-spin 60s linear infinite",
+                    }}
+                    draggable={false}
+                  />
+                );
+              }
+              if (layer.wobble) {
+                return (
+                  <motion.img
+                    key={layer.src}
+                    src={layer.src}
+                    alt={layer.alt}
+                    className={layer.className}
+                    style={{
+                      ...layer.style,
+                      opacity: tIn,
+                      zIndex: z,
+                      pointerEvents: "none",
+                      userSelect: "none",
+                      transformOrigin: "50% 50%",
+                      scaleX: -1,
+                    }}
+                    animate={{ rotate: [0, 12, -8, 14, -12, 6, 0] }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 14,
+                      ease: "easeInOut",
+                      times: [0, 0.18, 0.36, 0.54, 0.72, 0.88, 1],
+                    }}
+                    draggable={false}
+                  />
+                );
+              }
               return (
                 <img
                   key={layer.src}
@@ -456,64 +502,18 @@ export default function Shadowbox({ sectionContent }: ShadowboxProps) {
                     ...layer.style,
                     opacity: tIn,
                     zIndex: z,
+                    transform: `translateY(${(1 - tIn) * 24}px)`,
+                    transition: "transform 250ms ease-out",
                     pointerEvents: "none",
                     userSelect: "none",
-                    transformOrigin: "50% 50%",
-                    animation: "shadowbox-galaxy-spin 60s linear infinite",
                   }}
                   draggable={false}
                 />
               );
-            }
-            if (layer.wobble) {
-              return (
-                <motion.img
-                  key={layer.src}
-                  src={layer.src}
-                  alt={layer.alt}
-                  className={layer.className}
-                  style={{
-                    ...layer.style,
-                    opacity: tIn,
-                    zIndex: z,
-                    pointerEvents: "none",
-                    userSelect: "none",
-                    transformOrigin: "50% 50%",
-                    scaleX: -1,
-                  }}
-                  animate={{ rotate: [0, 12, -8, 14, -12, 6, 0] }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 14,
-                    ease: "easeInOut",
-                    times: [0, 0.18, 0.36, 0.54, 0.72, 0.88, 1],
-                  }}
-                  draggable={false}
-                />
-              );
-            }
-            return (
-              <img
-                key={layer.src}
-                src={layer.src}
-                alt={layer.alt}
-                className={layer.className}
-                style={{
-                  ...layer.style,
-                  opacity: tIn,
-                  zIndex: z,
-                  transform: `translateY(${(1 - tIn) * 24}px)`,
-                  transition: "transform 250ms ease-out",
-                  pointerEvents: "none",
-                  userSelect: "none",
-                }}
-                draggable={false}
-              />
-            );
-          })}
-        </div>
+            })}
+          </div>
 
-      </Stage>
+        </Stage>
       </div>
 
       {/* Hill stack — lives OUTSIDE the Stage and spans the full viewport
